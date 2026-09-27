@@ -36,6 +36,14 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
 
   bool get _editMode => widget.existing != null;
 
+  List<int> get _pilihanDurasi {
+    final list = List<int>.from(Tariff.durasiPilihan);
+    if (!list.contains(10)) {
+      list.insert(0, 10);
+    }
+    return list;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -99,8 +107,12 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
   }
 
   void _updateTarifOtomatis() {
-    final tarif = SettingsService.instance.tarifUntuk(_durasiBaruMenit);
-    _saldoController.text = tarif.toString();
+    if (_durasiBaruMenit == 10) {
+      _saldoController.text = '1000';
+    } else {
+      final tarif = SettingsService.instance.tarifUntuk(_durasiBaruMenit);
+      _saldoController.text = tarif.toString();
+    }
   }
 
   Future<void> _pickDate() async {
@@ -313,7 +325,7 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
                 const Text('Durasi sewa (bayar baru):', style: TextStyle(fontWeight: FontWeight.bold)),
                 Wrap(
                   spacing: 8,
-                  children: Tariff.durasiPilihan.map((durasi) {
+                  children: _pilihanDurasi.map((durasi) {
                     return ChoiceChip(
                       label: Text(Tariff.labelDurasi(durasi)),
                       selected: _durasiBaruMenit == durasi,
