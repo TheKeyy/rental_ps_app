@@ -254,7 +254,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [10, 20, 30, 60, 120].map((m) {
-            final harga = s.tarifUntuk(m);
+            final harga = m == 10 ? 1000 : s.tarifUntuk(m);
             return ListTile(
               title: Text(Tariff.labelDurasi(m)),
               trailing: Text('Rp ${NumberFormat('#,###', 'id').format(harga)}'),
@@ -440,7 +440,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     }
 
     return Card(
-      color: cardColor,
       elevation: 2,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
