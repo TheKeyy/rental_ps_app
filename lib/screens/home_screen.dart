@@ -57,3 +57,651 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   @override
+  void dispose() {
+    _tabController.dispose();
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _buildTimerSignature() {
+    final now = DateTime.now();
+    final buffer = StringBuffer();
+    for (final r in _rentalList) {
+      if (r.tanggal != DateFormat('yyyy-MM-dd').format(now)) continue;
+      final start = RentalTime.startOf(r);
+      final end = RentalTime.endOf(r);
+      if (now.isAfter(start) && now.isBefore(end)) {
+        buffer.write('${r.id}_${end.difference(now).inSeconds}|');
+      }
+    }
+    return buffer.toString();
+  }
+
+  void _checkTimersForAlert() {
+    final now = DateTime.now();
+    for (final r in _rentalList) {
+      if (r.tanggal != DateFormat('yyyy-MM-dd').format(now)) continue;
+      final end = RentalTime.endOf(r);
+      final sisaDetik = end.difference(now).inSeconds;
+
+      final key5 = '${r.id}_5m';
+      if (sisaDetik <= 300 && sisaDetik > 290 && !_playedAlarms.contains(key5)) {
+        _playedAlarms.add(key5);
+        AlertService.instance.bunyiLokal();
+      }
+
+      final key0 = '${r.id}_0m';
+      if (sisaDetik <= 0 && sisaDetik >= -5 && !_playedAlarms.contains(key0)) {
+        _playedAlarms.add(key0);
+        AlertService.instance.bunyiLokal();
+      }
+    }
+  }
+
+  Future<void> _loadAllData() async {
+    final rentals = await DatabaseHelper.instance.getRentalsByDate(_selectedDate);
+    final expenses = await DatabaseHelper.instance.getExpensesByDate(_selectedDate);
+    final snacks = await DatabaseHelper.instance.getSnackOrdersByDate(_selectedDate);
+
+    if (mounted) {
+      setState(() {
+        _rentalList = rentals;
+        _expenseList = expenses;
+        _snackOrderList = snacks;
+      });
+    }
+  }
+
+  int get _omzetSewa => _rentalList.fold(0, (sum, r) => sum + r.saldo);
+  int get _omzetSnack => _snackOrderList.fold(0, (sum, s) => sum + s.totalHarga);
+  int get _totalPengeluaran => _expenseList.fold(0, (sum, e) => sum + e.nominal);
+  int get _omzetTotal => _omzetSewa + _omzetSnack;
+  int get _labaBersih => _omzetTotal - _totalPengeluaran;
+
+  Future<void> _pickDate() async {
+    final cur = DateTime.tryParse(_selectedDate) ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: cur,
+      firstDate: DateTime(2024),
+      lastDate: DateTime(2030),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = DateFormat('yyyy-MM-dd').format(picked);
+      });
+      _loadAllData();
+    }
+  }
+
+  Future<void> _exportWhatsApp() async {
+    final currency = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0);
+    final nama = SettingsService.instance.namaWarung;
+    final tanggalFormat = DateFormat('EEEE, dd MMMM yyyy').format(DateTime.parse(_selectedDate));
+
+    final buffer = StringBuffer();
+    buffer.writeln('🎮 *REKAP HARIAN $nama*');
+    buffer.writeln('🗓️ Tanggal: $tanggalFormat');
+    buffer.writeln('----------------------------------');
+    buffer.writeln('🕹️ Omzet Sewa PS: ${currency.format(_omzetSewa)} (${_rentalList.length} sesi)');
+    buffer.writeln('🍿 Omzet Snack/F&B: ${currency.format(_omzetSnack)} (${_snackOrderList.length} order)');
+    buffer.writeln('💵 Total Kas Masuk: ${currency.format(_omzetTotal)}');
+    buffer.writeln('💸 Pengeluaran: ${currency.format(_totalPengeluaran)} (${_expenseList.length} pos)');
+    buffer.writeln('📈 *LABA BERSIH:* ${currency.format(_labaBersih)}');
+    buffer.writeln('----------------------------------');
+
+    final message = Uri.encodeComponent(buffer.toString());
+    final nomor = SettingsService.instance.nomorWa.replaceAll(RegExp(r'[^0-9]'), '');
+    final nativeUrl = nomor.isEmpty
+        ? Uri.parse('whatsapp://send?text=$message')
+        : Uri.parse('whatsapp://send?phone=$nomor&text=$message');
+    final webUrl = nomor.isEmpty
+        ? Uri.parse('https://wa.me/?text=$message')
+        : Uri.parse('https://wa.me/$nomor?text=$message');
+
+    try {
+      if (await canLaunchUrl(nativeUrl)) {
+        await launchUrl(nativeUrl);
+      } else {
+        await launchUrl(webUrl, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal membuka WhatsApp: $e')));
+      }
+    }
+  }
+
+  void _simpanSisaWaktuModal(Rental rental) {
+    final now = DateTime.now();
+    final end = RentalTime.endOf(rental);
+    final diff = end.difference(now);
+    final sisaMenit = diff.inMinutes;
+
+    if (sisaMenit <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Waktu rental ini sudah habis')),
+      );
+      return;
+    }
+
+    final namaClean = rental.nama.split('(').first.trim();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Simpan sisa waktu?'),
+        content: Text(
+          'Simpan sisa $sisaMenit menit atas nama "$namaClean" ke deposit waktu?',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await DatabaseHelper.instance.tambahSisaMenit(namaClean, sisaMenit);
+
+              final durasiBaru = rental.durasiMenit - sisaMenit;
+              final rBaru = rental.copyWith(
+                durasiMenit: durasiBaru < 0 ? 0 : durasiBaru,
+                waktuSelesai: RentalTime.formatJam(now),
+              );
+              await DatabaseHelper.instance.updateRental(rBaru);
+              await AlertService.instance.batalkanSemua(rental.psNomor);
+              _loadAllData();
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Sisa $sisaMenit menit disimpan untuk $namaClean')),
+                );
+              }
+            },
+            child: const Text('Simpan Deposit'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUnitPSCards() {
+    final settings = SettingsService.instance;
+    final now = DateTime.now();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      height: 155,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: settings.jumlahPs,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final ps = index + 1;
+          final aktif = RentalTime.aktifUntukPs(_rentalList, ps, now);
+          final next = RentalTime.berikutnyaUntukPs(_rentalList, ps, now);
+
+          Duration diff = Duration.zero;
+          if (aktif != null) {
+            diff = RentalTime.endOf(aktif).difference(now);
+            if (diff.isNegative) diff = Duration.zero;
+          }
+
+          final isBusy = aktif != null;
+          final isWarning = isBusy && diff.inMinutes <= 5;
+
+          return SizedBox(
+            width: 180,
+            child: Card(
+              color: !isBusy
+                  ? Colors.teal.shade50
+                  : isWarning
+                      ? Colors.orange.shade50
+                      : Colors.blue.shade50,
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                side: BorderSide(
+                  color: !isBusy
+                      ? Colors.teal.shade300
+                      : isWarning
+                          ? Colors.orange.shade400
+                          : Colors.blue.shade300,
+                  width: 1.5,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'PS $ps',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: !isBusy
+                                ? Colors.teal
+                                : isWarning
+                                    ? Colors.orange
+                                    : Colors.blue,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            !isBusy ? 'KOSONG' : isWarning ? 'HAMPIR HABIS' : 'MAIN',
+                            style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (isBusy) ...[
+                      Text(
+                        aktif.nama,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      Text(
+                        RentalTime.formatSisa(diff),
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: isWarning ? Colors.deepOrange : Colors.blue.shade900,
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => _simpanSisaWaktuModal(aktif),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.save_as, size: 14, color: Colors.blue),
+                            SizedBox(width: 4),
+                            Text('Stop & simpan sisa', style: TextStyle(fontSize: 11, color: Colors.blue)),
+                          ],
+                        ),
+                      ),
+                    ] else ...[
+                      const Spacer(),
+                      if (next != null)
+                        Text(
+                          'Antrean: ${next.nama} (${next.waktuMulai})',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        )
+                      else
+                        const Text(
+                          'Siap digunakan',
+                          style: TextStyle(fontSize: 12, color: Colors.teal, fontWeight: FontWeight.w600),
+                        ),
+                      const Spacer(),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard() {
+    final currency = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Sewa PS', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    Text(currency.format(_omzetSewa), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Snack / F&B', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    Text(currency.format(_omzetSnack), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Pengeluaran', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    Text(currency.format(_totalPengeluaran), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                  ],
+                ),
+              ],
+            ),
+            const Divider(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Laba Bersih Hari Ini:', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  currency.format(_labaBersih),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: _labaBersih >= 0 ? Colors.green.shade800 : Colors.red.shade800,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currency = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(SettingsService.instance.namaWarung),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.inventory),
+            tooltip: 'Katalog & Stok Jajan',
+            onPressed: () async {
+              await Navigator.push(context, MaterialPageRoute(builder: (_) => const SnackInventoryScreen()));
+              _loadAllData();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.analytics_outlined),
+            tooltip: 'Laporan',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportScreen())),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Pengaturan',
+            onPressed: () async {
+              final ok = await Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+              if (ok == true) {
+                setState(() {});
+                _loadAllData();
+              }
+            },
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(88),
+          child: Column(
+            children: [
+              InkWell(
+                onTap: _pickDate,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.calendar_month, size: 16, color: Colors.blue),
+                      const SizedBox(width: 6),
+                      Text(
+                        DateFormat('EEEE, dd MMMM yyyy').format(DateTime.parse(_selectedDate)),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      const Icon(Icons.arrow_drop_down, size: 18),
+                    ],
+                  ),
+                ),
+              ),
+              TabBar(
+                controller: _tabController,
+                tabs: [
+                  Tab(text: 'Sewa (${_rentalList.length})'),
+                  Tab(text: 'Keluar (${_expenseList.length})'),
+                  Tab(text: 'Jajan (${_snackOrderList.length})'),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      body: Column(
+        children: [
+          _buildUnitPSCards(),
+          _buildSummaryCard(),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // TAB 1: RENTAL LIST
+                _rentalList.isEmpty
+                    ? const Center(child: Text('Belum ada transaksi sewa hari ini.'))
+                    : ListView.builder(
+                        itemCount: _rentalList.length,
+                        itemBuilder: (context, index) {
+                          final r = _rentalList[index];
+                          return Card(
+                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: Colors.blue.shade100,
+                                child: Text('PS ${r.psNomor}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                              ),
+                              title: Text(r.nama, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text('${r.waktuMulai} - ${r.waktuSelesai} (${r.durasiMenit}m) • ${r.metodeBayar}'),
+                              trailing: Text(
+                                currency.format(r.saldo),
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                              ),
+                              onTap: () async {
+                                final updated = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => AddRentalScreen(selectedDate: _selectedDate, existing: r),
+                                  ),
+                                );
+                                if (updated == true) _loadAllData();
+                              },
+                              onLongPress: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Hapus transaksi?'),
+                                    content: Text('Hapus sewa ${r.nama} di PS ${r.psNomor}?'),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+                                      ElevatedButton(
+                                        onPressed: () async {
+                                          Navigator.pop(ctx);
+                                          await DatabaseHelper.instance.deleteRental(r.id!);
+                                          await AlertService.instance.batalkanSemua(r.psNomor);
+                                          _loadAllData();
+                                        },
+                                        child: const Text('Hapus'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      ),
+
+                // TAB 2: EXPENSES LIST
+                _expenseList.isEmpty
+                    ? const Center(child: Text('Belum ada pengeluaran hari ini.'))
+                    : ListView.builder(
+                        itemCount: _expenseList.length,
+                        itemBuilder: (context, index) {
+                          final e = _expenseList[index];
+                          return Card(
+                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: Colors.red.shade100,
+                                child: const Icon(Icons.money_off, color: Colors.red, size: 20),
+                              ),
+                              title: Text(e.keterangan, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text('${e.kategori} • ${e.waktu}'),
+                              trailing: Text(
+                                currency.format(e.nominal),
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                              ),
+                              onTap: () async {
+                                final updated = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => AddExpenseScreen(selectedDate: _selectedDate, existing: e),
+                                  ),
+                                );
+                                if (updated == true) _loadAllData();
+                              },
+                              onLongPress: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Hapus pengeluaran?'),
+                                    content: Text('Hapus "${e.keterangan}"?'),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+                                      ElevatedButton(
+                                        onPressed: () async {
+                                          Navigator.pop(ctx);
+                                          await DatabaseHelper.instance.deleteExpense(e.id!);
+                                          _loadAllData();
+                                        },
+                                        child: const Text('Hapus'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      ),
+
+                // TAB 3: SNACK ORDERS LIST
+                _snackOrderList.isEmpty
+                    ? const Center(child: Text('Belum ada penjualan snack/jajan hari ini.'))
+                    : ListView.builder(
+                        itemCount: _snackOrderList.length,
+                        itemBuilder: (context, index) {
+                          final s = _snackOrderList[index];
+                          return Card(
+                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: Colors.orange.shade100,
+                                child: const Icon(Icons.fastfood, color: Colors.deepOrange, size: 20),
+                              ),
+                              title: Text(s.namaPembeli, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text('${s.detailItem} • ${s.waktu}'),
+                              trailing: Text(
+                                currency.format(s.totalHarga),
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange),
+                              ),
+                              onLongPress: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Hapus order jajan?'),
+                                    content: Text('Hapus order milik "${s.namaPembeli}"?'),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+                                      ElevatedButton(
+                                        onPressed: () async {
+                                          Navigator.pop(ctx);
+                                          await DatabaseHelper.instance.deleteSnackOrder(s.id!);
+                                          _loadAllData();
+                                        },
+                                        child: const Text('Hapus'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              IconButton(
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.green.shade600,
+                  foregroundColor: Colors.white,
+                ),
+                icon: const Icon(Icons.share),
+                tooltip: 'Bagikan Rekap ke WA',
+                onPressed: _exportWhatsApp,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade700,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(44),
+                  ),
+                  icon: const Icon(Icons.fastfood, size: 18),
+                  label: const Text('+ Kasir Jajan'),
+                  onPressed: () async {
+                    final res = await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => AddSnackScreen(selectedDate: _selectedDate)),
+                    );
+                    if (res == true) _loadAllData();
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _tabController.index == 1 ? Colors.redAccent : Colors.blue,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(44),
+                  ),
+                  icon: Icon(_tabController.index == 1 ? Icons.money_off : Icons.add),
+                  label: Text(_tabController.index == 1 ? '+ Pengeluaran' : '+ Sewa Baru'),
+                  onPressed: () async {
+                    if (_tabController.index == 1) {
+                      final res = await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => AddExpenseScreen(selectedDate: _selectedDate)),
+                      );
+                      if (res == true) _loadAllData();
+                    } else {
+                      final res = await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => AddRentalScreen(selectedDate: _selectedDate)),
+                      );
+                      if (res == true) _loadAllData();
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
