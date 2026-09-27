@@ -2,6 +2,8 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/rental_model.dart';
 import '../models/expense_model.dart';
+import '../models/snack_item_model.dart';
+import '../models/snack_model.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -28,7 +30,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 4) {
@@ -53,6 +55,9 @@ class DatabaseHelper {
         }
         if (oldVersion < 6) {
           await _migrateV6(db);
+        }
+        if (oldVersion < 7) {
+          await _migrateV7(db);
         }
       },
     );
@@ -91,6 +96,26 @@ class DatabaseHelper {
         kategori TEXT NOT NULL DEFAULT 'Lainnya'
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE snack_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nama TEXT NOT NULL,
+        harga INTEGER NOT NULL,
+        stok INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE snack_orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nama_pembeli TEXT NOT NULL,
+        detail_item TEXT NOT NULL,
+        total_harga INTEGER NOT NULL,
+        tanggal TEXT NOT NULL,
+        waktu TEXT NOT NULL
+      )
+    ''');
   }
 
   Future<void> _migrateV6(Database db) async {
@@ -99,6 +124,28 @@ class DatabaseHelper {
     if (!names.contains('kategori')) {
       await db.execute("ALTER TABLE expenses ADD COLUMN kategori TEXT NOT NULL DEFAULT 'Lainnya'");
     }
+  }
+
+  Future<void> _migrateV7(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS snack_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nama TEXT NOT NULL,
+        harga INTEGER NOT NULL,
+        stok INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS snack_orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nama_pembeli TEXT NOT NULL,
+        detail_item TEXT NOT NULL,
+        total_harga INTEGER NOT NULL,
+        tanggal TEXT NOT NULL,
+        waktu TEXT NOT NULL
+      )
+    ''');
   }
 
   Future<int> insertRental(Rental rental) async {
@@ -226,5 +273,72 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getAllDeposits() async {
     final db = await instance.database;
     return await db.query('time_deposits', where: 'sisa_menit > 0', orderBy: 'nama ASC');
+  }
+
+  // ==========================================
+  // SNACK ITEMS & ORDERS
+  // ==========================================
+
+  Future<List<SnackItem>> getAllSnackItems() async {
+    final db = await instance.database;
+    final result = await db.query('snack_items', orderBy: 'nama ASC');
+    return result.map((json) => SnackItem.fromMap(json)).toList();
+  }
+
+  Future<int> insertSnackItem(SnackItem item) async {
+    final db = await instance.database;
+    return await db.insert('snack_items', item.toMap());
+  }
+
+  Future<int> updateSnackItem(SnackItem item) async {
+    final db = await instance.database;
+    return await db.update('snack_items', item.toMap(), where: 'id = ?', whereArgs: [item.id]);
+  }
+
+  Future<int> deleteSnackItem(int id) async {
+    final db = await instance.database;
+    return await db.delete('snack_items', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> reduceStock(int id, int qty) async {
+    final db = await instance.database;
+    final items = await db.query('snack_items', where: 'id = ?', whereArgs: [id]);
+    if (items.isNotEmpty) {
+      final curStock = items.first['stok'] as int;
+      final newStock = (curStock - qty) < 0 ? 0 : (curStock - qty);
+      await db.update(
+        'snack_items',
+        {'stok': newStock},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    }
+  }
+
+  Future<int> insertSnackOrder(SnackOrder order) async {
+    final db = await instance.database;
+    return await db.insert('snack_orders', order.toMap());
+  }
+
+  Future<List<SnackOrder>> getSnackOrdersByDate(String tanggal) async {
+    final db = await instance.database;
+    final result = await db.query('snack_orders', where: 'tanggal = ?', whereArgs: [tanggal], orderBy: 'id DESC');
+    return result.map((json) => SnackOrder.fromMap(json)).toList();
+  }
+
+  Future<List<SnackOrder>> getSnackOrdersByDateRange(String startDate, String endDate) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'snack_orders',
+      where: 'tanggal >= ? AND tanggal <= ?',
+      whereArgs: [startDate, endDate],
+      orderBy: 'tanggal DESC, id DESC',
+    );
+    return result.map((json) => SnackOrder.fromMap(json)).toList();
+  }
+
+  Future<int> deleteSnackOrder(int id) async {
+    final db = await instance.database;
+    return await db.delete('snack_orders', where: 'id = ?', whereArgs: [id]);
   }
 }
