@@ -1,0 +1,29 @@
+name: rental_ps_app
+description: "Aplikasi rental PS & kasir"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.1.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  sqflite: ^2.3.0
+  path: ^1.9.0
+  intl: ^0.19.0
+  url_launcher: ^6.3.0
+  shared_preferences: ^2.3.2
+  file_picker: ^8.1.4
+  share_plus: ^10.1.2
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.10.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
