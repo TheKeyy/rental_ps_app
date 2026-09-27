@@ -30,7 +30,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 4) {
@@ -61,6 +61,9 @@ class DatabaseHelper {
         }
         if (oldVersion < 8) {
           await _migrateV8(db);
+        }
+        if (oldVersion < 9) {
+          await _migrateV9(db);
         }
       },
     );
@@ -125,6 +128,7 @@ class DatabaseHelper {
 
   Future<void> _createIndexes(DatabaseExecutor db) async {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_rentals_tanggal ON rentals(tanggal)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_rentals_ps_nomor ON rentals(ps_nomor)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_expenses_tanggal ON expenses(tanggal)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_snack_orders_tanggal ON snack_orders(tanggal)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_deposits_nama ON time_deposits(nama)');
@@ -161,7 +165,14 @@ class DatabaseHelper {
   }
 
   Future<void> _migrateV8(Database db) async {
-    await _createIndexes(db);
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_rentals_tanggal ON rentals(tanggal)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_expenses_tanggal ON expenses(tanggal)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_snack_orders_tanggal ON snack_orders(tanggal)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_deposits_nama ON time_deposits(nama)');
+  }
+
+  Future<void> _migrateV9(Database db) async {
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_rentals_ps_nomor ON rentals(ps_nomor)');
   }
 
   // ==========================================
