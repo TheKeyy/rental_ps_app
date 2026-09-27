@@ -30,7 +30,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 4) {
@@ -58,6 +58,9 @@ class DatabaseHelper {
         }
         if (oldVersion < 7) {
           await _migrateV7(db);
+        }
+        if (oldVersion < 8) {
+          await _migrateV8(db);
         }
       },
     );
@@ -116,6 +119,15 @@ class DatabaseHelper {
         waktu TEXT NOT NULL
       )
     ''');
+
+    await _createIndexes(db);
+  }
+
+  Future<void> _createIndexes(DatabaseExecutor db) async {
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_rentals_tanggal ON rentals(tanggal)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_expenses_tanggal ON expenses(tanggal)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_snack_orders_tanggal ON snack_orders(tanggal)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_deposits_nama ON time_deposits(nama)');
   }
 
   Future<void> _migrateV6(Database db) async {
@@ -148,6 +160,14 @@ class DatabaseHelper {
     ''');
   }
 
+  Future<void> _migrateV8(Database db) async {
+    await _createIndexes(db);
+  }
+
+  // ==========================================
+  // RENTALS
+  // ==========================================
+
   Future<int> insertRental(Rental rental) async {
     final db = await instance.database;
     return await db.insert('rentals', rental.toMap());
@@ -165,7 +185,12 @@ class DatabaseHelper {
 
   Future<List<Rental>> getRentalsByDate(String tanggal) async {
     final db = await instance.database;
-    final result = await db.query('rentals', where: 'tanggal = ?', whereArgs: [tanggal], orderBy: 'id DESC');
+    final result = await db.query(
+      'rentals',
+      where: 'tanggal = ?',
+      whereArgs: [tanggal],
+      orderBy: 'id DESC',
+    );
     return result.map((json) => Rental.fromMap(json)).toList();
   }
 
@@ -180,6 +205,10 @@ class DatabaseHelper {
     return result.map((json) => Rental.fromMap(json)).toList();
   }
 
+  // ==========================================
+  // EXPENSES
+  // ==========================================
+
   Future<int> insertExpense(Expense exp) async {
     final db = await instance.database;
     return await db.insert('expenses', exp.toMap());
@@ -192,7 +221,12 @@ class DatabaseHelper {
 
   Future<List<Expense>> getExpensesByDate(String tanggal) async {
     final db = await instance.database;
-    final result = await db.query('expenses', where: 'tanggal = ?', whereArgs: [tanggal], orderBy: 'id DESC');
+    final result = await db.query(
+      'expenses',
+      where: 'tanggal = ?',
+      whereArgs: [tanggal],
+      orderBy: 'id DESC',
+    );
     return result.map((json) => Expense.fromMap(json)).toList();
   }
 
@@ -212,9 +246,17 @@ class DatabaseHelper {
     return await db.delete('expenses', where: 'id = ?', whereArgs: [id]);
   }
 
+  // ==========================================
+  // TIME DEPOSITS
+  // ==========================================
+
   Future<int> getSisaMenit(String nama) async {
     final db = await instance.database;
-    final result = await db.query('time_deposits', where: 'LOWER(nama) = ?', whereArgs: [nama.trim().toLowerCase()]);
+    final result = await db.query(
+      'time_deposits',
+      where: 'LOWER(nama) = ?',
+      whereArgs: [nama.trim().toLowerCase()],
+    );
     if (result.isNotEmpty) {
       return result.first['sisa_menit'] as int;
     }
@@ -245,7 +287,11 @@ class DatabaseHelper {
     final sisaBaru = current - menitDipakai;
 
     if (sisaBaru <= 0) {
-      await db.delete('time_deposits', where: 'LOWER(nama) = ?', whereArgs: [cleanName.toLowerCase()]);
+      await db.delete(
+        'time_deposits',
+        where: 'LOWER(nama) = ?',
+        whereArgs: [cleanName.toLowerCase()],
+      );
     } else {
       await db.update(
         'time_deposits',
@@ -302,17 +348,19 @@ class DatabaseHelper {
 
   Future<void> reduceStock(int id, int qty) async {
     final db = await instance.database;
-    final items = await db.query('snack_items', where: 'id = ?', whereArgs: [id]);
-    if (items.isNotEmpty) {
-      final curStock = items.first['stok'] as int;
-      final newStock = (curStock - qty) < 0 ? 0 : (curStock - qty);
-      await db.update(
-        'snack_items',
-        {'stok': newStock},
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-    }
+    await db.transaction((txn) async {
+      final items = await txn.query('snack_items', where: 'id = ?', whereArgs: [id]);
+      if (items.isNotEmpty) {
+        final curStock = items.first['stok'] as int;
+        final newStock = (curStock - qty) < 0 ? 0 : (curStock - qty);
+        await txn.update(
+          'snack_items',
+          {'stok': newStock},
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+    });
   }
 
   Future<int> insertSnackOrder(SnackOrder order) async {
@@ -322,7 +370,12 @@ class DatabaseHelper {
 
   Future<List<SnackOrder>> getSnackOrdersByDate(String tanggal) async {
     final db = await instance.database;
-    final result = await db.query('snack_orders', where: 'tanggal = ?', whereArgs: [tanggal], orderBy: 'id DESC');
+    final result = await db.query(
+      'snack_orders',
+      where: 'tanggal = ?',
+      whereArgs: [tanggal],
+      orderBy: 'id DESC',
+    );
     return result.map((json) => SnackOrder.fromMap(json)).toList();
   }
 
