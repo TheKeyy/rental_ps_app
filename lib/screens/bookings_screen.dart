@@ -140,7 +140,6 @@ class _BookingsScreenState extends State<BookingsScreen> {
                 if (!formKey.currentState!.validate()) return;
                 final begins = DateTime(day.year, day.month, day.day, start.hour, start.minute);
                 final ends = begins.add(Duration(minutes: duration));
-                final unit = _units.firstWhere((u) => u['id'] == unitId);
                 final beginsText = begins.toIso8601String();
                 final endsText = ends.toIso8601String();
                 final conflict = await DatabaseHelper.instance.bookingBentrok(
