@@ -751,6 +751,7 @@ class _RentalNotebookRowsEditorState extends State<RentalNotebookRowsEditor> {
   ];
 
   final List<Map<String, TextEditingController>> _rows = [];
+  final List<String> _rowKeys = [];
 
   @override
   void initState() {
@@ -760,6 +761,8 @@ class _RentalNotebookRowsEditorState extends State<RentalNotebookRowsEditor> {
     } else {
       for (final row in widget.initialRows) {
         _rows.add(_makeControllers(row));
+        final key = (row['_import_key'] ?? '').trim();
+        _rowKeys.add(key.isNotEmpty ? key : 'row-${_rowKeys.length + 1}');
       }
     }
   }
@@ -780,6 +783,7 @@ class _RentalNotebookRowsEditorState extends State<RentalNotebookRowsEditor> {
       'sewa': '',
       'saldo': '',
     }));
+    _rowKeys.add('row-1');
   }
 
   void _addRow() {
@@ -798,11 +802,13 @@ class _RentalNotebookRowsEditorState extends State<RentalNotebookRowsEditor> {
         'sewa': '',
         'saldo': '',
       }));
+      _rowKeys.add('manual-${DateTime.now().microsecondsSinceEpoch}-${_rows.length}');
     });
   }
 
   void _removeRow(int index) {
     final removed = _rows.removeAt(index);
+    _rowKeys.removeAt(index);
     for (final controller in removed.values) {
       controller.dispose();
     }
@@ -810,12 +816,19 @@ class _RentalNotebookRowsEditorState extends State<RentalNotebookRowsEditor> {
   }
 
   List<Map<String, String>> _collectRows() {
-    return _rows.map((row) {
-      return <String, String>{
+    final collected = <Map<String, String>>[];
+    for (var index = 0; index < _rows.length; index++) {
+      final controllers = _rows[index];
+      final values = <String, String>{
         for (final field in _fields)
-          field.$1: row[field.$1]!.text.trim(),
+          field.$1: controllers[field.$1]!.text.trim(),
       };
-    }).where((row) => row.values.any((value) => value.isNotEmpty)).toList();
+      if (values.values.any((value) => value.isNotEmpty)) {
+        values['_import_key'] = _rowKeys[index];
+        collected.add(values);
+      }
+    }
+    return collected;
   }
 
   void _save() {
