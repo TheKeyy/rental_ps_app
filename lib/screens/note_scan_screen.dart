@@ -268,9 +268,11 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
         ),
       );
       if (edited == null) return;
-      await DatabaseHelper.instance.updateNoteScanText(
+      final reviewedText = edited.trim();
+      await DatabaseHelper.instance.updateNoteScanReview(
         id: id,
-        extractedText: edited.trim(),
+        extractedText: reviewedText,
+        entriesJson: jsonEncode(_parseRows(reviewedText)),
       );
       if (!mounted) return;
       await _loadPhotos();
