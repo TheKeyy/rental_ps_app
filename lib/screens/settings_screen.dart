@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../services/backup_service.dart';
 import '../services/settings_service.dart';
 import '../services/tariff.dart';
+import 'units_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -129,7 +130,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 16),
           _sectionTitle('Unit dan keamanan', Icons.tune_outlined),
-          Text('Jumlah unit PS: $_jumlahPs', style: const TextStyle(fontWeight: FontWeight.bold)),
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.sports_esports_outlined, color: Theme.of(context).colorScheme.primary),
+              title: const Text('Manajemen Unit PS'),
+              subtitle: const Text('Tambah PS3, PS4, atau konsol lain tanpa mengubah kode aplikasi'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                await Navigator.push(context, MaterialPageRoute(builder: (_) => const UnitsScreen()));
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text('Jumlah unit PS lama (kompatibilitas): $_jumlahPs', style: const TextStyle(fontWeight: FontWeight.bold)),
+
           Slider(
             value: _jumlahPs.toDouble(),
             min: 1,
