@@ -256,16 +256,16 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 Card(
-                  color: Colors.blue.shade50,
+                  color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.42),
                   margin: EdgeInsets.zero,
                   child: ListTile(
-                    leading: const Icon(Icons.calendar_month, color: Colors.blue),
+                    leading: Icon(Icons.calendar_month, color: Theme.of(context).colorScheme.primary),
                     title: const Text('Tanggal pembukuan', style: TextStyle(fontSize: 12, color: Colors.grey)),
                     subtitle: Text(
                       DateFormat('EEEE, dd MMMM yyyy').format(_tanggalTransaksi),
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
                     ),
-                    trailing: const Icon(Icons.edit_calendar, color: Colors.blue),
+                    trailing: Icon(Icons.edit_calendar, color: Theme.of(context).colorScheme.primary),
                     onTap: _pickDate,
                   ),
                 ),
@@ -288,8 +288,7 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
                   controller: _namaController,
                   decoration: const InputDecoration(
                     labelText: 'Nama penyewa',
-                    border: OutlineInputBorder(),
-                    hintText: 'Ketik nama untuk cek sisa waktu...',
+                                        hintText: 'Ketik nama untuk cek sisa waktu...',
                   ),
                   onChanged: _checkDeposit,
                 ),
@@ -300,7 +299,7 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
                     decoration: BoxDecoration(
                       color: Colors.amber.shade50,
                       border: Border.all(color: Colors.amber.shade400),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -374,7 +373,7 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
                   child: Text(
                     'Total main: $_totalMenitMain menit (${_totalMenitMain ~/ 60} jam ${_totalMenitMain % 60} mnt) '
                     'sampai ${RentalTime.formatJam(_startTime.add(Duration(minutes: _totalMenitMain)))}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
                   ),
                 ),
                 const SizedBox(height: 16),
