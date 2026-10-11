@@ -659,6 +659,11 @@ class DatabaseHelper {
           continue;
         }
 
+        final validPsNomor = psNomor!;
+        final validUnitId = unitId!;
+        final validDurasiMenit = durasiMenit!;
+        final validSaldo = saldo!;
+
         final alreadyImported = await txn.query(
           'note_scan_imports',
           where: 'note_scan_id = ? AND row_fingerprint = ?',
@@ -673,7 +678,7 @@ class DatabaseHelper {
         final unitRows = await txn.query(
           'rental_units',
           where: 'id = ? AND unit_number = ? AND is_active = 1',
-          whereArgs: [unitId, psNomor],
+          whereArgs: [validUnitId, validPsNomor],
           limit: 1,
         );
         if (unitRows.isEmpty) {
@@ -686,10 +691,6 @@ class DatabaseHelper {
           skipped.add({'nama': nama, 'reason': 'Tanggal atau jam mulai tidak valid.'});
           continue;
         }
-        final validPsNomor = psNomor!;
-        final validUnitId = unitId!;
-        final validDurasiMenit = durasiMenit!;
-        final validSaldo = saldo!;
         final endAt = startAt.add(Duration(minutes: validDurasiMenit));
         final rental = Rental(
           nama: nama,
