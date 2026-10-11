@@ -680,10 +680,15 @@ class _RentalNotebookRowsEditorState extends State<RentalNotebookRowsEditor> {
   }
 
   void _addRow() {
-    final number = _rows.length + 1;
+    var highestNumber = 0;
+    for (final row in _rows) {
+      final number = int.tryParse(row['no']!.text.trim()) ?? 0;
+      if (number > highestNumber) highestNumber = number;
+    }
+
     setState(() {
       _rows.add(_makeControllers({
-        'no': '$number',
+        'no': '${highestNumber + 1}',
         'nama': '',
         'ps': '',
         'waktu': '',
