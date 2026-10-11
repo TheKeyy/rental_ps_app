@@ -194,7 +194,45 @@ class _BookingsScreenState extends State<BookingsScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _bookings.isEmpty
-              ? const Center(child: Text('Belum ada booking. Tekan Booking baru untuk mencatat jadwal.'))
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(28),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 340),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 76,
+                            height: 76,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Icon(
+                              Icons.event_note_outlined,
+                              size: 38,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          const Text(
+                            'Belum ada booking',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Tekan tombol “Booking baru” untuk mencatat jadwal pelanggan.',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
+                          ),
+                          const SizedBox(height: 84),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                   itemCount: _bookings.length,

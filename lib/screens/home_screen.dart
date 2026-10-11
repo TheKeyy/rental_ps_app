@@ -377,7 +377,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _openNoteScans() async {
-    await Navigator.push(
+    final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
         builder: (_) => NoteScansScreen(
@@ -385,6 +385,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         ),
       ),
     );
+    if (!mounted) return;
+    final importedDate = result?['date'] as String?;
+    if (importedDate != null) {
+      setState(() => _selectedDate = importedDate);
+    }
+    await _loadAllData();
   }
 
   Widget _buildSummaryCard() {

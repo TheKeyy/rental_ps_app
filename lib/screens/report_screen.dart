@@ -44,6 +44,15 @@ class _ReportScreenState extends State<ReportScreen> {
     _loadData();
   }
 
+  Future<void> _openNoteScans() async {
+    final initialDate = _selectedFilterIndex == 1 ? DateTime.now() : _endDate;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => NoteScansScreen(initialDate: initialDate)),
+    );
+    if (mounted) await _loadData();
+  }
+
   Future<void> _loadData() async {
     final fStart = DateFormat('yyyy-MM-dd').format(_startDate);
     final fEnd = DateFormat('yyyy-MM-dd').format(_endDate);
@@ -152,14 +161,7 @@ class _ReportScreenState extends State<ReportScreen> {
           IconButton(
             tooltip: 'Foto catatan',
             icon: const Icon(Icons.document_scanner_outlined),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => NoteScansScreen(
-                  initialDate: _selectedFilterIndex == 1 ? DateTime.now() : _endDate,
-                ),
-              ),
-            ),
+            onPressed: _openNoteScans,
           ),
           IconButton(tooltip: 'Kirim rekap WhatsApp', icon: const Icon(Icons.share_outlined), onPressed: _exportWhatsApp),
         ],
@@ -180,14 +182,7 @@ class _ReportScreenState extends State<ReportScreen> {
           Center(child: Text(_periodLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
           const SizedBox(height: 10),
           OutlinedButton.icon(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => NoteScansScreen(
-                  initialDate: _selectedFilterIndex == 1 ? DateTime.now() : _endDate,
-                ),
-              ),
-            ),
+            onPressed: _openNoteScans,
             icon: const Icon(Icons.photo_library_outlined),
             label: const Text('Arsip foto buku catatan'),
             style: OutlinedButton.styleFrom(

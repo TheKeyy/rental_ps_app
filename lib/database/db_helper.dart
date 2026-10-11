@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/rental_model.dart';
 import '../models/expense_model.dart';
+import '../services/rental_time.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -28,7 +29,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 12,
+      version: 13,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 4) {
@@ -69,6 +70,9 @@ class DatabaseHelper {
         if (oldVersion < 12) {
           await _migrateV12(db);
         }
+        if (oldVersion < 13) {
+          await _migrateV13(db);
+        }
       },
     );
   }
@@ -108,6 +112,7 @@ class DatabaseHelper {
     ''');
 
     await _createNoteScansTable(db);
+    await _createNoteScanImportsTable(db);
     await _createRentalManagementTables(db);
     await _createIndexes(db);
   }
@@ -159,6 +164,26 @@ class DatabaseHelper {
 
   Future<void> _migrateV12(Database db) async {
     await _createRentalManagementTables(db);
+  }
+
+  Future<void> _migrateV13(Database db) async {
+    await _createNoteScanImportsTable(db);
+  }
+
+  Future<void> _createNoteScanImportsTable(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS note_scan_imports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        note_scan_id INTEGER NOT NULL,
+        row_fingerprint TEXT NOT NULL,
+        rental_id INTEGER NOT NULL,
+        imported_at TEXT NOT NULL,
+        UNIQUE(note_scan_id, row_fingerprint)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_note_scan_imports_scan ON note_scan_imports(note_scan_id)',
+    );
   }
 
   Future<void> _createRentalManagementTables(DatabaseExecutor db) async {
@@ -576,6 +601,183 @@ class DatabaseHelper {
   Future<int> deleteNoteScan(int id) async {
     final db = await instance.database;
     return db.delete('note_scans', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<Set<String>> getImportedNoteFingerprints(int noteScanId) async {
+    final db = await instance.database;
+    final rows = await db.query(
+      'note_scan_imports',
+      columns: ['row_fingerprint'],
+      where: 'note_scan_id = ?',
+      whereArgs: [noteScanId],
+    );
+    return rows.map((row) => row['row_fingerprint'] as String).toSet();
+  }
+
+  /// Imports user-reviewed ledger rows into official rentals atomically per row.
+  /// Rows that were already imported, duplicated, booked over, or overlap another
+  /// rental are reported as skipped instead of silently changing the ledger.
+  Future<Map<String, dynamic>> importNoteScanRows({
+    required int noteScanId,
+    required List<Map<String, dynamic>> rows,
+  }) async {
+    final db = await instance.database;
+    final imported = <Map<String, dynamic>>[];
+    final skipped = <Map<String, dynamic>>[];
+
+    await db.transaction((txn) async {
+      final photo = await txn.query(
+        'note_scans',
+        columns: ['id'],
+        where: 'id = ?',
+        whereArgs: [noteScanId],
+        limit: 1,
+      );
+      if (photo.isEmpty) {
+        throw StateError('Foto catatan tidak ditemukan. Muat ulang arsip lalu coba lagi.');
+      }
+
+      for (final row in rows) {
+        final fingerprint = (row['row_fingerprint'] as String? ?? '').trim();
+        final nama = (row['nama'] as String? ?? '').trim();
+        final psNomor = row['ps_nomor'] as int?;
+        final unitId = row['unit_id'] as int?;
+        final tanggal = (row['tanggal'] as String? ?? '').trim();
+        final waktuMulai = (row['waktu_mulai'] as String? ?? '').trim();
+        final durasiMenit = row['durasi_menit'] as int?;
+        final saldo = row['saldo'] as int?;
+        final metodeBayar = (row['metode_bayar'] as String? ?? 'Cash').trim();
+
+        String? reason;
+        if (fingerprint.isEmpty || nama.isEmpty || psNomor == null || unitId == null ||
+            tanggal.isEmpty || waktuMulai.isEmpty || durasiMenit == null ||
+            durasiMenit <= 0 || saldo == null || saldo <= 0) {
+          reason = 'Data wajib belum lengkap.';
+        }
+        if (reason != null) {
+          skipped.add({'nama': nama.isEmpty ? 'Baris tanpa nama' : nama, 'reason': reason});
+          continue;
+        }
+
+        final validPsNomor = psNomor!;
+        final validUnitId = unitId!;
+        final validDurasiMenit = durasiMenit!;
+        final validSaldo = saldo!;
+
+        final alreadyImported = await txn.query(
+          'note_scan_imports',
+          where: 'note_scan_id = ? AND row_fingerprint = ?',
+          whereArgs: [noteScanId, fingerprint],
+          limit: 1,
+        );
+        if (alreadyImported.isNotEmpty) {
+          skipped.add({'nama': nama, 'reason': 'Baris dari foto ini sudah pernah diimpor.'});
+          continue;
+        }
+
+        final unitRows = await txn.query(
+          'rental_units',
+          where: 'id = ? AND unit_number = ? AND is_active = 1',
+          whereArgs: [validUnitId, validPsNomor],
+          limit: 1,
+        );
+        if (unitRows.isEmpty) {
+          skipped.add({'nama': nama, 'reason': 'Unit tidak aktif atau pilihan unit sudah berubah.'});
+          continue;
+        }
+
+        final startAt = DateTime.tryParse('${tanggal}T$waktuMulai:00');
+        if (startAt == null) {
+          skipped.add({'nama': nama, 'reason': 'Tanggal atau jam mulai tidak valid.'});
+          continue;
+        }
+        final endAt = startAt.add(Duration(minutes: validDurasiMenit));
+        final rental = Rental(
+          nama: nama,
+          psNomor: validPsNomor,
+          waktuMulai: RentalTime.formatJam(startAt),
+          waktuSelesai: RentalTime.formatJam(endAt),
+          durasiMenit: validDurasiMenit,
+          saldo: validSaldo,
+          metodeBayar: metodeBayar,
+          tanggal: tanggal,
+        );
+
+        final duplicate = await txn.query(
+          'rentals',
+          where: 'tanggal = ? AND ps_nomor = ? AND LOWER(nama) = ? AND waktu_mulai = ? AND durasi_menit = ? AND saldo = ?',
+          whereArgs: [tanggal, validPsNomor, nama.toLowerCase(), rental.waktuMulai, validDurasiMenit, validSaldo],
+          limit: 1,
+        );
+        if (duplicate.isNotEmpty) {
+          await txn.insert('note_scan_imports', {
+            'note_scan_id': noteScanId,
+            'row_fingerprint': fingerprint,
+            'rental_id': duplicate.first['id'],
+            'imported_at': DateTime.now().toIso8601String(),
+          }, conflictAlgorithm: ConflictAlgorithm.ignore);
+          skipped.add({'nama': nama, 'reason': 'Transaksi serupa sudah ada di catatan hari.'});
+          continue;
+        }
+
+        final dayBefore = startAt.subtract(const Duration(days: 1));
+        final dayAfter = endAt.add(const Duration(days: 1));
+        String dateKey(DateTime date) =>
+            '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+        final existingRows = await txn.query(
+          'rentals',
+          where: 'ps_nomor = ? AND tanggal >= ? AND tanggal <= ?',
+          whereArgs: [validPsNomor, dateKey(dayBefore), dateKey(dayAfter)],
+        );
+        var rentalConflict = false;
+        for (final existingRow in existingRows) {
+          final existing = Rental.fromMap(existingRow);
+          final existingStart = RentalTime.startOf(existing);
+          final existingEnd = RentalTime.endOf(existing);
+          if (startAt.isBefore(existingEnd) && endAt.isAfter(existingStart)) {
+            rentalConflict = true;
+            break;
+          }
+        }
+        if (rentalConflict) {
+          skipped.add({'nama': nama, 'reason': 'Jadwal bentrok dengan transaksi rental yang sudah ada.'});
+          continue;
+        }
+
+        final bookings = await txn.query(
+          'bookings',
+          where: "unit_id = ? AND status IN ('Menunggu', 'Dikonfirmasi')",
+          whereArgs: [validUnitId],
+        );
+        var bookingConflict = false;
+        for (final booking in bookings) {
+          final bookingStart = DateTime.tryParse(booking['start_at'] as String? ?? '');
+          final bookingEnd = DateTime.tryParse(booking['end_at'] as String? ?? '');
+          if (bookingStart != null && bookingEnd != null &&
+              startAt.isBefore(bookingEnd) && endAt.isAfter(bookingStart)) {
+            bookingConflict = true;
+            break;
+          }
+        }
+        if (bookingConflict) {
+          skipped.add({'nama': nama, 'reason': 'Jadwal bentrok dengan booking yang aktif.'});
+          continue;
+        }
+
+        final rentalValues = rental.toMap()..remove('id');
+        final rentalId = await txn.insert('rentals', rentalValues);
+        await txn.insert('note_scan_imports', {
+          'note_scan_id': noteScanId,
+          'row_fingerprint': fingerprint,
+          'rental_id': rentalId,
+          'imported_at': DateTime.now().toIso8601String(),
+        });
+        imported.add({'nama': nama, 'rental_id': rentalId});
+      }
+    });
+
+    return {'imported': imported, 'skipped': skipped};
   }
 
 }

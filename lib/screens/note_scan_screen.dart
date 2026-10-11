@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import '../database/db_helper.dart';
 import '../services/rental_notebook_parser.dart';
+import 'note_scan_import_screen.dart';
 
 class NoteScansScreen extends StatefulWidget {
   const NoteScansScreen({super.key, this.initialDate});
@@ -58,7 +59,10 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
     try {
       final decoded = jsonDecode(photo['entries_json'] as String? ?? '[]');
       if (decoded is! List) return [];
-      return decoded.whereType<Map>().map((entry) {
+      final entries = decoded.whereType<Map>().toList();
+      return List<Map<String, String>>.generate(entries.length, (index) {
+        final entry = entries[index];
+        final storedKey = (entry['_import_key']?.toString() ?? '').trim();
         return <String, String>{
           'no': entry['no']?.toString() ?? '',
           'nama': entry['nama']?.toString() ?? '',
@@ -66,11 +70,21 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
           'waktu': entry['waktu']?.toString() ?? '',
           'sewa': entry['sewa']?.toString() ?? '',
           'saldo': entry['saldo']?.toString() ?? '',
+          '_import_key': storedKey.isNotEmpty ? storedKey : 'row-${index + 1}',
         };
-      }).toList();
+      });
     } catch (_) {
       return [];
     }
+  }
+
+  List<Map<String, String>> _withImportKeys(List<Map<String, String>> rows) {
+    return List<Map<String, String>>.generate(rows.length, (index) {
+      final row = Map<String, String>.from(rows[index]);
+      final key = (row['_import_key'] ?? '').trim();
+      row['_import_key'] = key.isNotEmpty ? key : 'row-${index + 1}';
+      return row;
+    });
   }
 
   Future<void> _pickDate() async {
@@ -114,75 +128,81 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
       }
 
       if (!mounted) return;
-      final textController = TextEditingController(text: extractedText);
       var shouldSave = false;
-      var reviewedText = '';
-      try {
-        shouldSave = await showDialog<bool>(
-              context: context,
-              barrierDismissible: false,
-              builder: (dialogContext) => AlertDialog(
-                title: const Text('Periksa hasil baca foto'),
-                content: SizedBox(
-                  width: 480,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ClipRRect(
+      final reviewedText = extractedText;
+      shouldSave = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (dialogContext) => AlertDialog(
+              title: const Text('Periksa foto buku'),
+              content: SizedBox(
+                width: 420,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.memory(
+                          bytes,
+                          height: 180,
+                          width: double.infinity,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Foto akan disimpan terlebih dahulu. Setelah itu, isi dan rapikan data melalui tabel enam kolom agar lebih mudah dibaca.',
+                        style: TextStyle(fontSize: 14, height: 1.5),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(dialogContext).colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.memory(
-                            bytes,
-                            height: 180,
-                            width: double.infinity,
-                            fit: BoxFit.contain,
-                          ),
                         ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Format buku: No | Nama | PS | Waktu | Sewa | Saldo. Cocokkan hasil OCR dengan buku asli. Baris yang tidak terbaca bisa diisi manual pada langkah berikutnya.',
-                          style: TextStyle(fontSize: 12, height: 1.45),
+                        child: const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Kolom yang akan diisi', style: TextStyle(fontWeight: FontWeight.w700)),
+                            SizedBox(height: 6),
+                            Text('No  ·  Nama  ·  PS  ·  Waktu  ·  Sewa  ·  Saldo'),
+                          ],
                         ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: textController,
-                          minLines: 4,
-                          maxLines: 9,
-                          decoration: const InputDecoration(
-                            labelText: 'Teks hasil baca (bisa dikoreksi)',
-                            alignLabelWithHint: true,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Tulisan tangan mungkin tidak terbaca sempurna oleh OCR. Cocokkan setiap baris dengan foto asli sebelum mengimpor transaksi.',
+                        style: TextStyle(fontSize: 12, height: 1.45, color: Colors.blueGrey),
+                      ),
+                    ],
                   ),
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(dialogContext, false),
-                    child: const Text('Batal'),
-                  ),
-                  FilledButton.icon(
-                    onPressed: () => Navigator.pop(dialogContext, true),
-                    icon: const Icon(Icons.save_outlined),
-                    label: const Text('Simpan foto & rekap'),
-                  ),
-                ],
               ),
-            ) ??
-            false;
-        reviewedText = textController.text.trim();
-      } finally {
-        textController.dispose();
-      }
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Batal'),
+                ),
+                FilledButton.icon(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  icon: const Icon(Icons.table_chart_outlined),
+                  label: const Text('Simpan & atur kolom'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
 
       if (!shouldSave || !mounted) return;
       final insertedId = await DatabaseHelper.instance.insertNoteScan(
         tanggal: _dateKey,
         imageBytes: bytes,
         extractedText: reviewedText,
-        entriesJson: jsonEncode(_parseRows(reviewedText)),
+        entriesJson: jsonEncode(_withImportKeys(_parseRows(reviewedText))),
         createdAt: DateTime.now().toIso8601String(),
       );
       if (!mounted) return;
@@ -204,6 +224,76 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
       if (mounted) _showMessage('Foto gagal diproses. Coba foto ulang dengan cahaya yang cukup.');
     } finally {
       if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _importPhotoRows(Map<String, dynamic> photo) async {
+    final id = photo['id'] as int?;
+    if (id == null) return;
+
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NoteScanImportScreen(
+          noteScanId: id,
+          date: photo['tanggal'] as String? ?? _dateKey,
+          rows: _decodeRows(photo),
+        ),
+      ),
+    );
+    if (!mounted || result == null) return;
+
+    await _loadPhotos();
+    if (!mounted) return;
+    final imported = result['imported'] as List? ?? const [];
+    final skipped = result['skipped'] as List? ?? const [];
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Hasil impor'),
+        content: SizedBox(
+          width: 480,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Berhasil diimpor: ${imported.length}'),
+                Text('Dilewati: ${skipped.length}'),
+                if (imported.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Text('Transaksi tersimpan dan akan masuk ke ringkasan sesuai tanggal yang dipilih.'),
+                ],
+                if (skipped.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  for (final item in skipped)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(_skippedImportLabel(item)),
+                    ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(imported.isNotEmpty ? 'Kembali ke Catatan Hari' : 'Mengerti'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    if (imported.isNotEmpty) {
+      Navigator.pop(context, {
+        'date': result['date'] as String? ?? photo['tanggal'] as String? ?? _dateKey,
+        'importedCount': imported.length,
+      });
+    } else if (mounted) {
+      _showMessage('Belum ada transaksi baru yang ditambahkan.');
     }
   }
 
@@ -269,10 +359,18 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
       );
       if (edited == null) return;
       final reviewedText = edited.trim();
+      final parsedRows = _parseRows(reviewedText);
+      final existingRows = _decodeRows(photo);
+      final stableRows = List<Map<String, String>>.generate(parsedRows.length, (index) {
+        final key = index < existingRows.length
+            ? (existingRows[index]['_import_key'] ?? 'row-${index + 1}')
+            : 'manual-${DateTime.now().microsecondsSinceEpoch}-$index';
+        return {...parsedRows[index], '_import_key': key};
+      });
       await DatabaseHelper.instance.updateNoteScanReview(
         id: id,
         extractedText: reviewedText,
-        entriesJson: jsonEncode(_parseRows(reviewedText)),
+        entriesJson: jsonEncode(stableRows),
       );
       if (!mounted) return;
       await _loadPhotos();
@@ -402,12 +500,31 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      _importPhotoRows(photo);
+                    },
+                    icon: const Icon(Icons.playlist_add_check_circle_outlined),
+                    label: const Text('Konfirmasi & Masukkan ke Catatan Hari'),
+                  ),
+                ),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  String _skippedImportLabel(Object? item) {
+    if (item is! Map) return 'Baris: Tidak diimpor';
+    final name = item['nama']?.toString() ?? 'Baris';
+    final reason = item['reason']?.toString() ?? 'Tidak diimpor';
+    return '• $name: $reason';
   }
 
   void _showMessage(String message) {
@@ -648,6 +765,7 @@ class _RentalNotebookRowsEditorState extends State<RentalNotebookRowsEditor> {
   ];
 
   final List<Map<String, TextEditingController>> _rows = [];
+  final List<String> _rowKeys = [];
 
   @override
   void initState() {
@@ -657,6 +775,8 @@ class _RentalNotebookRowsEditorState extends State<RentalNotebookRowsEditor> {
     } else {
       for (final row in widget.initialRows) {
         _rows.add(_makeControllers(row));
+        final key = (row['_import_key'] ?? '').trim();
+        _rowKeys.add(key.isNotEmpty ? key : 'row-${_rowKeys.length + 1}');
       }
     }
   }
@@ -677,6 +797,7 @@ class _RentalNotebookRowsEditorState extends State<RentalNotebookRowsEditor> {
       'sewa': '',
       'saldo': '',
     }));
+    _rowKeys.add('row-1');
   }
 
   void _addRow() {
@@ -695,11 +816,13 @@ class _RentalNotebookRowsEditorState extends State<RentalNotebookRowsEditor> {
         'sewa': '',
         'saldo': '',
       }));
+      _rowKeys.add('manual-${DateTime.now().microsecondsSinceEpoch}-${_rows.length}');
     });
   }
 
   void _removeRow(int index) {
     final removed = _rows.removeAt(index);
+    _rowKeys.removeAt(index);
     for (final controller in removed.values) {
       controller.dispose();
     }
@@ -707,12 +830,19 @@ class _RentalNotebookRowsEditorState extends State<RentalNotebookRowsEditor> {
   }
 
   List<Map<String, String>> _collectRows() {
-    return _rows.map((row) {
-      return <String, String>{
+    final collected = <Map<String, String>>[];
+    for (var index = 0; index < _rows.length; index++) {
+      final controllers = _rows[index];
+      final values = <String, String>{
         for (final field in _fields)
-          field.$1: row[field.$1]!.text.trim(),
+          field.$1: controllers[field.$1]!.text.trim(),
       };
-    }).where((row) => row.values.any((value) => value.isNotEmpty)).toList();
+      if (values.values.any((value) => value.isNotEmpty)) {
+        values['_import_key'] = _rowKeys[index];
+        collected.add(values);
+      }
+    }
+    return collected;
   }
 
   void _save() {
