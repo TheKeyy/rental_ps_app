@@ -32,6 +32,7 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
   int _depositDipakai = 0;
 
   List<Rental> _sewaHariIni = [];
+  List<Map<String, dynamic>> _unitRows = [];
   bool _isLoadingStatus = true;
 
   bool get _editMode => widget.existing != null;
@@ -70,6 +71,21 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
   }
 
   Future<void> _checkActiveUnits() async {
+    var units = await DatabaseHelper.instance.getRentalUnits();
+    if (units.isEmpty) {
+      // Seed existing installations from the legacy unit count without deleting any data.
+      final settings = SettingsService.instance;
+      for (var number = 1; number <= settings.jumlahPs; number++) {
+        await DatabaseHelper.instance.saveRentalUnit(
+          unitCode: 'PS3-${number.toString().padLeft(2, '0')}',
+          consoleType: 'PS3',
+          displayName: 'PS3 Unit $number',
+          unitNumber: number,
+          hourlyRate: settings.hargaPer10 * 6,
+        );
+      }
+      units = await DatabaseHelper.instance.getRentalUnits();
+    }
     final transStr = DateFormat('yyyy-MM-dd').format(_tanggalTransaksi);
     final selectedDay = DateTime.parse(transStr);
     final previousDay = DateFormat('yyyy-MM-dd').format(selectedDay.subtract(const Duration(days: 1)));
@@ -77,13 +93,14 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
     if (!mounted) return;
     setState(() {
       _sewaHariIni = rentals;
+      _unitRows = units;
       _isLoadingStatus = false;
       if (!_editMode) {
         final now = DateTime.now();
-        final settings = SettingsService.instance;
-        for (int ps = 1; ps <= settings.jumlahPs; ps++) {
-          if (RentalTime.aktifUntukPs(rentals, ps, now) == null) {
-            _selectedPS = ps;
+        for (final unit in units) {
+          final unitNumber = unit['unit_number'] as int;
+          if (RentalTime.aktifUntukPs(rentals, unitNumber, now) == null) {
+            _selectedPS = unitNumber;
             break;
           }
         }
@@ -245,7 +262,6 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final settings = SettingsService.instance;
     final now = DateTime.now();
 
     return Scaffold(
@@ -330,9 +346,11 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    for (int ps = 1; ps <= settings.jumlahPs; ps++)
+                    for (final unit in _unitRows)
                       Builder(
                         builder: (_) {
+                          final ps = unit['unit_number'] as int;
+                          final unitCode = unit['unit_code'] as String;
                           final aktif = RentalTime.aktifUntukPs(_sewaHariIni, ps, now);
                           final next = RentalTime.berikutnyaUntukPs(_sewaHariIni, ps, now);
                           final sibuk = aktif != null && !_editMode;
