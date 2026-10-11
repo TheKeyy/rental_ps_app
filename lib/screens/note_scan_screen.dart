@@ -1151,3 +1151,267 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
     );
   }
 }
+
+class RentalNotebookRowsEditor extends StatefulWidget {
+  const RentalNotebookRowsEditor({
+    super.key,
+    required this.date,
+    required this.initialRows,
+  });
+
+  final String date;
+  final List<Map<String, String>> initialRows;
+
+  @override
+  State<RentalNotebookRowsEditor> createState() => _RentalNotebookRowsEditorState();
+}
+
+class _RentalNotebookRowsEditorState extends State<RentalNotebookRowsEditor> {
+  static const List<(String, String)> _fields = [
+    ('no', 'No'),
+    ('nama', 'Nama'),
+    ('ps', 'PS'),
+    ('waktu', 'Waktu'),
+    ('sewa', 'Sewa'),
+    ('saldo', 'Saldo'),
+  ];
+
+  final List<Map<String, TextEditingController>> _rows = [];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialRows.isEmpty) {
+      _addRow();
+    } else {
+      for (final row in widget.initialRows) {
+        _rows.add(_makeControllers(row));
+      }
+    }
+  }
+
+  Map<String, TextEditingController> _makeControllers(
+    [Map<String, String>? initial],
+  ) {
+    return {
+      for (final field in _fields)
+        field.$1: TextEditingController(text: initial?[field.$1] ?? ''),
+    };
+  }
+
+  void _addRow() {
+    final initial = <String, String>{
+      'no': '${_rows.length + 1}',
+      'nama': '',
+      'ps': '',
+      'waktu': '',
+      'sewa': '',
+      'saldo': '',
+    };
+    setState(() => _rows.add(_makeControllers(initial)));
+  }
+
+  void _removeRow(int index) {
+    final removed = _rows.removeAt(index);
+    for (final controller in removed.values) {
+      controller.dispose();
+    }
+    setState(() {});
+  }
+
+  List<Map<String, String>> _collectRows() {
+    return _rows.map((row) {
+      return <String, String>{
+        for (final field in _fields)
+          field.$1: row[field.$1]!.text.trim(),
+      };
+    }).where((row) => row.values.any((value) => value.isNotEmpty)).toList();
+  }
+
+  void _save() {
+    final rows = _collectRows();
+    if (rows.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Isi setidaknya satu baris rekap terlebih dahulu.')),
+      );
+      return;
+    }
+    Navigator.pop(context, rows);
+  }
+
+  @override
+  void dispose() {
+    for (final row in _rows) {
+      for (final controller in row.values) {
+        controller.dispose();
+      }
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dateLabel = DateFormat('dd MMMM yyyy').format(
+      DateTime.tryParse(widget.date) ?? DateTime.now(),
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Rekap Buku Rental'),
+        actions: [
+          IconButton(
+            tooltip: 'Tambah baris',
+            onPressed: _addRow,
+            icon: const Icon(Icons.add),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8E9FF),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Periksa data per baris',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF3730A3),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    dateLabel,
+                    style: const TextStyle(color: Color(0xFF4F46E5)),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Format: No • Nama • PS • Waktu • Sewa • Saldo. OCR adalah perkiraan; cocokkan kembali dengan buku asli. Data ini belum masuk ke transaksi rental resmi.',
+                    style: TextStyle(fontSize: 12, height: 1.45),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Baris catatan',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Text(
+                  '${_collectRows().length} baris',
+                  style: const TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+              itemCount: _rows.length,
+              itemBuilder: (context, index) {
+                final row = _rows[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 30,
+                              height: 30,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE8E9FF),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '${index + 1}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF4F46E5),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Baris ${index + 1}',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Hapus baris',
+                              onPressed: _rows.length == 1 ? null : () => _removeRow(index),
+                              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final fieldWidth = (constraints.maxWidth - 10) / 2;
+                            return Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                for (final field in _fields)
+                                  SizedBox(
+                                    width: fieldWidth,
+                                    child: TextField(
+                                      controller: row[field.$1],
+                                      keyboardType: field.$1 == 'no' || field.$1 == 'ps'
+                                          ? TextInputType.number
+                                          : TextInputType.text,
+                                      decoration: InputDecoration(
+                                        labelText: field.$2,
+                                        hintText: field.$1 == 'waktu'
+                                            ? 'Mis. 13:00'
+                                            : field.$1 == 'saldo' || field.$1 == 'sewa'
+                                                ? 'Sesuai buku'
+                                                : null,
+                                        isDense: true,
+                                      ),
+                                      onChanged: (_) => setState(() {}),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: FilledButton.icon(
+          onPressed: _save,
+          icon: const Icon(Icons.save_outlined),
+          label: const Text('Simpan rekap catatan'),
+        ),
+      ),
+    );
+  }
+}
