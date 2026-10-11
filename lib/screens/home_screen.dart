@@ -13,6 +13,7 @@ import '../services/settings_service.dart';
 import '../services/tariff.dart';
 import 'add_expense_screen.dart';
 import 'add_rental_screen.dart';
+import 'note_scan_screen.dart';
 import 'report_screen.dart';
 import 'settings_screen.dart';
 
@@ -343,59 +344,119 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
+  Future<void> _openNoteScans() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NoteScansScreen(
+          initialDate: DateTime.tryParse(_selectedDate),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSummaryCard() {
     final currency = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0);
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
+    Widget metric(String label, String value, {Alignment alignment = Alignment.centerLeft}) {
+      return Expanded(
+        child: Align(
+          alignment: alignment,
+          child: Column(
+            crossAxisAlignment: alignment == Alignment.centerRight
+                ? CrossAxisAlignment.end
+                : alignment == Alignment.center
+                    ? CrossAxisAlignment.center
+                    : CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(fontSize: 11, color: Colors.white70)),
+              const SizedBox(height: 5),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF3730A3), Color(0xFF6366F1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF4F46E5).withValues(alpha: 0.16),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.insights_outlined, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Ringkasan harian',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              metric('Omzet sewa', currency.format(_omzetSewa)),
+              const SizedBox(width: 8),
+              metric('Sesi sewa', '${_rentalList.length}', alignment: Alignment.center),
+              const SizedBox(width: 8),
+              metric('Pengeluaran', currency.format(_totalPengeluaran), alignment: Alignment.centerRight),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 14),
+            child: Divider(height: 1, color: Colors.white30),
+          ),
+          Row(
+            children: [
+              const Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Omzet Sewa', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                    Text(currency.format(_omzetSewa), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                    Text('Sisa operasional', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    SizedBox(height: 3),
+                    Text('Omzet sewa dikurangi pengeluaran', style: TextStyle(color: Colors.white60, fontSize: 10)),
                   ],
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const Text('Sesi Sewa', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                    Text('${_rentalList.length}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text('Pengeluaran', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                    Text(currency.format(_totalPengeluaran), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
-                  ],
-                ),
-              ],
-            ),
-            const Divider(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Sisa Operasional:', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text(
+              ),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
                   currency.format(_sisaOperasional),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 19,
                     fontWeight: FontWeight.w900,
-                    color: _sisaOperasional >= 0 ? Colors.green.shade800 : Colors.red.shade800,
+                    color: _sisaOperasional >= 0 ? Colors.white : const Color(0xFFFFD5D5),
                   ),
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -412,6 +473,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             icon: const Icon(Icons.analytics_outlined),
             tooltip: 'Laporan',
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportScreen())),
+          ),
+          IconButton(
+            icon: const Icon(Icons.document_scanner_outlined),
+            tooltip: 'Foto Catatan',
+            onPressed: _openNoteScans,
           ),
           IconButton(
             icon: const Icon(Icons.settings),
