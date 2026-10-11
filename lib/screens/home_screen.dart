@@ -32,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   List<Rental> _rentalList = [];
   List<Rental> _todayRentalList = [];
   List<Expense> _expenseList = [];
+  List<Map<String, dynamic>> _unitRows = [];
   Timer? _timer;
   String _timerSignature = '';
   final Set<String> _playedAlarms = {};
@@ -104,12 +105,27 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     final expenses = await DatabaseHelper.instance.getExpensesByDate(_selectedDate);
     // Live status/timers must not stop working just because an older date is selected.
     final liveRentals = await DatabaseHelper.instance.getRentalsByDateRange(yesterdayStr, DateFormat('yyyy-MM-dd').format(today.add(const Duration(days: 1))));
+    var units = await DatabaseHelper.instance.getRentalUnits();
+    if (units.isEmpty) {
+      final settings = SettingsService.instance;
+      for (var number = 1; number <= settings.jumlahPs; number++) {
+        await DatabaseHelper.instance.saveRentalUnit(
+          unitCode: 'PS3-${number.toString().padLeft(2, '0')}',
+          consoleType: 'PS3',
+          displayName: 'PS3 Unit $number',
+          unitNumber: number,
+          hourlyRate: settings.hargaPer10 * 6,
+        );
+      }
+      units = await DatabaseHelper.instance.getRentalUnits();
+    }
 
     if (!mounted) return;
     setState(() {
       _rentalList = rentals;
       _expenseList = expenses;
       _todayRentalList = liveRentals;
+      _unitRows = units;
     });
   }
 
@@ -221,7 +237,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildUnitPSCards() {
-    final settings = SettingsService.instance;
     final now = DateTime.now();
 
     return Container(
@@ -229,10 +244,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       height: 155,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: settings.jumlahPs,
+        itemCount: _unitRows.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
-          final ps = index + 1;
+          final unit = _unitRows[index];
+          final ps = unit['unit_number'] as int;
+          final unitCode = unit['unit_code'] as String;
           final aktif = RentalTime.aktifUntukPs(_todayRentalList, ps, now);
           final next = RentalTime.berikutnyaUntukPs(_todayRentalList, ps, now);
 
@@ -271,8 +288,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'PS $ps',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          unitCode,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -569,7 +586,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             child: ListTile(
                               leading: CircleAvatar(
                                 backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                                child: Text('PS ${r.psNomor}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                child: Text('${_unitRows.where((u) => u['unit_number'] == r.psNomor).map((u) => u['unit_code']).firstOrNull ?? 'PS ${r.psNomor}'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                               ),
                               title: Text(r.nama, style: const TextStyle(fontWeight: FontWeight.bold)),
                               subtitle: Text('${r.waktuMulai} - ${r.waktuSelesai} (${r.durasiMenit}m) • ${r.metodeBayar}'),
