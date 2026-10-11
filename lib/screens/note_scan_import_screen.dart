@@ -26,10 +26,12 @@ class _NoteScanImportScreenState extends State<NoteScanImportScreen> {
   Set<String> _alreadyImported = {};
   bool _loading = true;
   bool _saving = false;
+  late DateTime _importDate;
 
   @override
   void initState() {
     super.initState();
+    _importDate = DateTime.tryParse(widget.date) ?? DateTime.now();
     _drafts = widget.rows.map(_ImportRowDraft.fromSource).toList();
     _loadUnitsAndImports();
   }
@@ -79,6 +81,17 @@ class _NoteScanImportScreenState extends State<NoteScanImportScreen> {
     return null;
   }
 
+  Future<void> _pickImportDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _importDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+      helpText: 'Pilih tanggal transaksi yang tercatat di buku',
+    );
+    if (picked != null && mounted) setState(() => _importDate = picked);
+  }
+
   int? _unitNumber(int? id) {
     if (id == null) return null;
     for (final unit in _units) {
@@ -117,7 +130,7 @@ class _NoteScanImportScreenState extends State<NoteScanImportScreen> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Konfirmasi impor transaksi'),
         content: Text(
-          '${selected.length} baris akan diperiksa terhadap transaksi dan booking yang sudah ada pada ${DateFormat('dd MMM yyyy').format(DateTime.parse(widget.date))}. '
+          '${selected.length} baris akan diperiksa terhadap transaksi dan booking yang sudah ada pada ${DateFormat('dd MMM yyyy').format(_importDate)}. '
           'Baris yang bentrok atau sudah pernah diimpor akan dilewati, bukan digandakan. Lanjutkan?',
         ),
         actions: [
@@ -139,7 +152,7 @@ class _NoteScanImportScreenState extends State<NoteScanImportScreen> {
               'nama': row.nama.text.trim(),
               'unit_id': row.unitId,
               'ps_nomor': _unitNumber(row.unitId),
-              'tanggal': widget.date,
+              'tanggal': DateFormat('yyyy-MM-dd').format(_importDate),
               'waktu_mulai': RentalNotebookImporter.parseStartTime(row.waktu.text)!,
               'durasi_menit': int.parse(row.durasi.text),
               'saldo': RentalNotebookImporter.parseAmount(row.saldo.text),
@@ -171,7 +184,6 @@ class _NoteScanImportScreenState extends State<NoteScanImportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final day = DateTime.tryParse(widget.date) ?? DateTime.now();
     final readyCount = _drafts.where((row) => row.isReady && row.unitId != null && !row.alreadyImported).length;
 
     return Scaffold(
@@ -201,7 +213,17 @@ class _NoteScanImportScreenState extends State<NoteScanImportScreen> {
                             children: [
                               Text('Periksa sebelum masuk transaksi', style: Theme.of(context).textTheme.titleMedium),
                               const SizedBox(height: 6),
-                              Text(DateFormat('EEEE, dd MMMM yyyy').format(day)),
+                              Card(
+                                margin: EdgeInsets.zero,
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                                  leading: const Icon(Icons.calendar_month_outlined),
+                                  title: const Text('Tanggal transaksi'),
+                                  subtitle: Text(DateFormat('EEEE, dd MMMM yyyy').format(_importDate)),
+                                  trailing: const Icon(Icons.edit_calendar_outlined),
+                                  onTap: _saving ? null : _pickImportDate,
+                                ),
+                              ),
                               const SizedBox(height: 8),
                               const Text(
                                 'Pilih baris yang benar. Waktu diambil dari jam mulai pada kolom Waktu; Sewa menjadi durasi bermain; Saldo menjadi nominal transaksi. Metode bayar tidak tertulis di buku, jadi periksa Cash/Transfer pada tiap baris.',
