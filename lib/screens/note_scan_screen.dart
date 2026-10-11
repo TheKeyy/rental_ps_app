@@ -228,42 +228,53 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
     if (!mounted) return;
     final imported = result['imported'] as List? ?? const [];
     final skipped = result['skipped'] as List? ?? const [];
-    _showMessage(
-      imported.isEmpty
-          ? 'Tidak ada transaksi baru. ${skipped.length} baris dilewati; periksa alasannya pada ringkasan hasil.'
-          : '${imported.length} transaksi masuk ke Catatan Hari. ${skipped.length} baris dilewati.',
-    );
-    if (skipped.isNotEmpty) {
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Hasil impor'),
-          content: SizedBox(
-            width: 480,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Berhasil diimpor: ${imported.length}'),
-                  Text('Dilewati: ${skipped.length}'),
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Hasil impor'),
+        content: SizedBox(
+          width: 480,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Berhasil diimpor: ${imported.length}'),
+                Text('Dilewati: ${skipped.length}'),
+                if (imported.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Text('Transaksi tersimpan dan akan masuk ke ringkasan sesuai tanggal yang dipilih.'),
+                ],
+                if (skipped.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   for (final item in skipped)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        _skippedImportLabel(item),
-                      ),
+                      child: Text(_skippedImportLabel(item)),
                     ),
                 ],
-              ),
+              ],
             ),
           ),
-          actions: [
-            FilledButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Mengerti')),
-          ],
         ),
-      );
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(imported.isNotEmpty ? 'Kembali ke Catatan Hari' : 'Mengerti'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    if (imported.isNotEmpty) {
+      Navigator.pop(context, {
+        'date': result['date'] as String? ?? photo['tanggal'] as String? ?? _dateKey,
+        'importedCount': imported.length,
+      });
+    } else if (mounted) {
+      _showMessage('Belum ada transaksi baru yang ditambahkan.');
     }
   }
 
