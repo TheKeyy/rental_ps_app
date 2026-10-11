@@ -76,17 +76,18 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
 
       final bytes = await picked.readAsBytes();
       String extractedText = '';
-      TextRecognizer? recognizer;
       try {
-        recognizer = TextRecognizer(script: TextRecognitionScript.latin);
-        final result = await recognizer.processImage(
-          InputImage.fromFilePath(picked.path),
-        );
-        extractedText = result.text.trim();
+        final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
+        try {
+          final result = await recognizer.processImage(
+            InputImage.fromFilePath(picked.path),
+          );
+          extractedText = result.text.trim();
+        } finally {
+          await recognizer.close();
+        }
       } catch (_) {
         // Keep the photo usable even if on-device text recognition fails.
-      } finally {
-        await recognizer?.close();
       }
 
       if (!mounted) return;
@@ -204,6 +205,56 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
     if (mounted) _showMessage('Foto catatan dihapus.');
   }
 
+  Future<void> _editExtractedText(Map<String, dynamic> photo) async {
+    final id = photo['id'] as int?;
+    if (id == null) return;
+
+    final controller = TextEditingController(
+      text: photo['extracted_text'] as String? ?? '',
+    );
+    try {
+      final edited = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Koreksi teks catatan'),
+          content: SizedBox(
+            width: 480,
+            child: TextField(
+              controller: controller,
+              minLines: 5,
+              maxLines: 12,
+              decoration: const InputDecoration(
+                labelText: 'Teks hasil baca',
+                alignLabelWithHint: true,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Batal'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(dialogContext, controller.text),
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('Simpan koreksi'),
+            ),
+          ],
+        ),
+      );
+
+      if (edited == null) return;
+      await DatabaseHelper.instance.updateNoteScanText(
+        id: id,
+        extractedText: edited.trim(),
+      );
+      await _loadPhotos();
+      if (mounted) _showMessage('Teks catatan berhasil diperbarui.');
+    } finally {
+      controller.dispose();
+    }
+  }
+
   void _showPhoto(Map<String, dynamic> photo) {
     final bytes = photo['image_blob'] as Uint8List;
     final text = (photo['extracted_text'] as String? ?? '').trim();
@@ -255,6 +306,18 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
                 Flexible(
                   child: SingleChildScrollView(
                     child: Text(text.isEmpty ? 'Belum ada teks yang terbaca.' : text),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      _editExtractedText(photo);
+                    },
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Koreksi teks'),
                   ),
                 ),
               ],
