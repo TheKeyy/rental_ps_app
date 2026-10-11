@@ -28,7 +28,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 11,
+      version: 12,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 4) {
@@ -65,6 +65,9 @@ class DatabaseHelper {
         }
         if (oldVersion < 11) {
           await _migrateV11(db);
+        }
+        if (oldVersion < 12) {
+          await _migrateV12(db);
         }
       },
     );
@@ -105,6 +108,7 @@ class DatabaseHelper {
     ''');
 
     await _createNoteScansTable(db);
+    await _createRentalManagementTables(db);
     await _createIndexes(db);
   }
 
@@ -151,6 +155,40 @@ class DatabaseHelper {
 
   Future<void> _migrateV10(Database db) async {
     await _createNoteScansTable(db);
+  }
+
+  Future<void> _migrateV12(Database db) async {
+    await _createRentalManagementTables(db);
+  }
+
+  Future<void> _createRentalManagementTables(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS rental_units (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        unit_code TEXT NOT NULL UNIQUE,
+        console_type TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        hourly_rate INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS bookings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_name TEXT NOT NULL,
+        customer_phone TEXT NOT NULL DEFAULT '',
+        unit_id INTEGER NOT NULL,
+        start_at TEXT NOT NULL,
+        end_at TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'Menunggu',
+        note TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(unit_id) REFERENCES rental_units(id)
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_bookings_schedule ON bookings(unit_id, start_at, end_at)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status)');
   }
 
   Future<void> _migrateV11(Database db) async {
