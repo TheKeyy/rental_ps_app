@@ -561,7 +561,7 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '\u0024{_photos.length} foto',
+                  '${_photos.length} foto',
                   style: const TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.bold),
                 ),
               ),
@@ -640,7 +640,7 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                '\u0024{rowCount} baris rekap • ketuk untuk membuka',
+                                '${rowCount} baris rekap • ketuk untuk membuka',
                                 style: const TextStyle(fontSize: 11, color: Color(0xFF4F46E5)),
                               ),
                             ],
@@ -842,7 +842,7 @@ class _RentalNotebookRowsEditorState extends State<RentalNotebookRowsEditor> {
                   ),
                 ),
                 Text(
-                  '\u0024{_collectRows().length} baris',
+                  '${_collectRows().length} baris',
                   style: const TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.w700),
                 ),
               ],
@@ -871,7 +871,7 @@ class _RentalNotebookRowsEditorState extends State<RentalNotebookRowsEditor> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
-                                '\u0024{index + 1}',
+                                '${index + 1}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF4F46E5),
@@ -881,7 +881,7 @@ class _RentalNotebookRowsEditorState extends State<RentalNotebookRowsEditor> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'Baris \u0024{index + 1}',
+                                'Baris ${index + 1}',
                                 style: const TextStyle(fontWeight: FontWeight.bold),
                               ),
                             ),
