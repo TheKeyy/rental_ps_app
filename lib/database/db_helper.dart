@@ -313,28 +313,6 @@ class DatabaseHelper {
     }
   }
 
-  Future<void> gunakanSisaMenit(String nama, int menitDipakai) async {
-    final db = await instance.database;
-    final cleanName = nama.trim();
-    final current = await getSisaMenit(cleanName);
-    final sisaBaru = current - menitDipakai;
-
-    if (sisaBaru <= 0) {
-      await db.delete(
-        'time_deposits',
-        where: 'LOWER(nama) = ?',
-        whereArgs: [cleanName.toLowerCase()],
-      );
-    } else {
-      await db.update(
-        'time_deposits',
-        {'sisa_menit': sisaBaru},
-        where: 'LOWER(nama) = ?',
-        whereArgs: [cleanName.toLowerCase()],
-      );
-    }
-  }
-
   Future<void> setSisaMenit(int id, int menit) async {
     final db = await instance.database;
     if (menit <= 0) {

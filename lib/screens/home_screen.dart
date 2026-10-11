@@ -141,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     buffer.writeln('----------------------------------');
     buffer.writeln('🕹️ Omzet Sewa PS: ${currency.format(_omzetSewa)} (${_rentalList.length} sesi)');
     buffer.writeln('💸 Pengeluaran: ${currency.format(_totalPengeluaran)} (${_expenseList.length} pos)');
-    buffer.writeln('📊 *SELISIH KAS:* ${currency.format(_sisaOperasional)}');
+    buffer.writeln('📊 *SISA OPERASIONAL:* ${currency.format(_sisaOperasional)}');
     buffer.writeln('🔢 ${_rentalList.length} sesi sewa');
     buffer.writeln('----------------------------------');
 
