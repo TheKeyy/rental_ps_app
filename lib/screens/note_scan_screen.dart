@@ -252,7 +252,7 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
-                        '• ${item is Map ? item['nama'] ?? 'Baris' : 'Baris'}: ${item is Map ? item['reason'] ?? 'Tidak diimpor' : 'Tidak diimpor'}',
+                        _skippedImportLabel(item),
                       ),
                     ),
                 ],
@@ -480,6 +480,13 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
         ),
       ),
     );
+  }
+
+  String _skippedImportLabel(Object? item) {
+    if (item is! Map) return 'Baris: Tidak diimpor';
+    final name = item['nama']?.toString() ?? 'Baris';
+    final reason = item['reason']?.toString() ?? 'Tidak diimpor';
+    return '• $name: $reason';
   }
 
   void _showMessage(String message) {
