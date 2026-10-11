@@ -23,7 +23,6 @@ class NoteScanImportScreen extends StatefulWidget {
 class _NoteScanImportScreenState extends State<NoteScanImportScreen> {
   late final List<_ImportRowDraft> _drafts;
   List<Map<String, dynamic>> _units = [];
-  Set<String> _alreadyImported = {};
   bool _loading = true;
   bool _saving = false;
   late DateTime _importDate;
@@ -46,7 +45,6 @@ class _NoteScanImportScreenState extends State<NoteScanImportScreen> {
     final imported = results[1] as Set<String>;
     setState(() {
       _units = units;
-      _alreadyImported = imported;
       for (final row in _drafts) {
         row.unitId = _matchUnit(row.source['ps'] ?? '');
         row.alreadyImported = imported.contains(row.fingerprint);
