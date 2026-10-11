@@ -59,7 +59,10 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
     try {
       final decoded = jsonDecode(photo['entries_json'] as String? ?? '[]');
       if (decoded is! List) return [];
-      return decoded.whereType<Map>().map((entry) {
+      final entries = decoded.whereType<Map>().toList();
+      return List<Map<String, String>>.generate(entries.length, (index) {
+        final entry = entries[index];
+        final storedKey = (entry['_import_key']?.toString() ?? '').trim();
         return <String, String>{
           'no': entry['no']?.toString() ?? '',
           'nama': entry['nama']?.toString() ?? '',
@@ -67,11 +70,21 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
           'waktu': entry['waktu']?.toString() ?? '',
           'sewa': entry['sewa']?.toString() ?? '',
           'saldo': entry['saldo']?.toString() ?? '',
+          '_import_key': storedKey.isNotEmpty ? storedKey : 'row-${index + 1}',
         };
-      }).toList();
+      });
     } catch (_) {
       return [];
     }
+  }
+
+  List<Map<String, String>> _withImportKeys(List<Map<String, String>> rows) {
+    return List<Map<String, String>>.generate(rows.length, (index) {
+      final row = Map<String, String>.from(rows[index]);
+      final key = (row['_import_key'] ?? '').trim();
+      row['_import_key'] = key.isNotEmpty ? key : 'row-${index + 1}';
+      return row;
+    });
   }
 
   Future<void> _pickDate() async {
@@ -183,7 +196,7 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
         tanggal: _dateKey,
         imageBytes: bytes,
         extractedText: reviewedText,
-        entriesJson: jsonEncode(_parseRows(reviewedText)),
+        entriesJson: jsonEncode(_withImportKeys(_parseRows(reviewedText))),
         createdAt: DateTime.now().toIso8601String(),
       );
       if (!mounted) return;
@@ -343,7 +356,7 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
       await DatabaseHelper.instance.updateNoteScanReview(
         id: id,
         extractedText: reviewedText,
-        entriesJson: jsonEncode(_parseRows(reviewedText)),
+        entriesJson: jsonEncode(_withImportKeys(_parseRows(reviewedText))),
       );
       if (!mounted) return;
       await _loadPhotos();
