@@ -112,7 +112,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   int get _omzetSewa => _rentalList.fold(0, (sum, r) => sum + r.saldo);
   int get _totalPengeluaran => _expenseList.fold(0, (sum, e) => sum + e.nominal);
-  int get _selisihKas => _omzetSewa - _totalPengeluaran;
+  int get _sisaOperasional => _omzetSewa - _totalPengeluaran;
 
   Future<void> _pickDate() async {
     final cur = DateTime.tryParse(_selectedDate) ?? DateTime.now();
@@ -141,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     buffer.writeln('----------------------------------');
     buffer.writeln('🕹️ Omzet Sewa PS: ${currency.format(_omzetSewa)} (${_rentalList.length} sesi)');
     buffer.writeln('💸 Pengeluaran: ${currency.format(_totalPengeluaran)} (${_expenseList.length} pos)');
-    buffer.writeln('📊 *SELISIH KAS:* ${currency.format(_selisihKas)}');
+    buffer.writeln('📊 *SELISIH KAS:* ${currency.format(_sisaOperasional)}');
     buffer.writeln('🔢 ${_rentalList.length} sesi sewa');
     buffer.writeln('----------------------------------');
 
@@ -383,13 +383,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Selisih Kas:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Sisa Operasional:', style: TextStyle(fontWeight: FontWeight.bold)),
                 Text(
-                  currency.format(_selisihKas),
+                  currency.format(_sisaOperasional),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
-                    color: _selisihKas >= 0 ? Colors.green.shade800 : Colors.red.shade800,
+                    color: _sisaOperasional >= 0 ? Colors.green.shade800 : Colors.red.shade800,
                   ),
                 ),
               ],

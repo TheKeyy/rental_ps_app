@@ -36,4 +36,4 @@ flutter test
 
 ## Catatan laporan
 
-Angka “Selisih Kas” merupakan total pemasukan sewa dikurangi pengeluaran yang dicatat dalam aplikasi. Angka ini bukan laporan laba akuntansi lengkap, karena belum memperhitungkan komponen seperti penyusutan perangkat atau biaya lain yang belum dimasukkan.
+Angka “Sisa Operasional” merupakan omzet sewa dikurangi pengeluaran yang dicatat dalam aplikasi. Angka ini adalah ringkasan operasional sederhana, bukan laba akuntansi lengkap atau saldo uang tunai fisik, karena belum memperhitungkan komponen seperti penyusutan perangkat dan biaya lain yang belum dimasukkan.

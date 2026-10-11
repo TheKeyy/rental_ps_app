@@ -58,7 +58,7 @@ class _ReportScreenState extends State<ReportScreen> {
   int get _totalSaldoRental => _rentals.fold(0, (sum, r) => sum + r.saldo);
   int get _totalMenitRental => _rentals.fold(0, (sum, r) => sum + r.durasiMenit);
   int get _totalPengeluaran => _expenses.fold(0, (sum, e) => sum + e.nominal);
-  int get _selisihKas => _totalSaldoRental - _totalPengeluaran;
+  int get _sisaOperasional => _totalSaldoRental - _totalPengeluaran;
   int get _cash => _rentals.where((r) => r.metodeBayar.toLowerCase() == 'cash').fold(0, (s, r) => s + r.saldo);
   int get _transfer => _rentals.where((r) => r.metodeBayar.toLowerCase() != 'cash').fold(0, (s, r) => s + r.saldo);
 
@@ -96,7 +96,7 @@ class _ReportScreenState extends State<ReportScreen> {
     buffer.writeln('🎮 Omzet sewa: ${currency.format(_totalSaldoRental)}');
     buffer.writeln('💵 Cash: ${currency.format(_cash)} | 🏦 TF: ${currency.format(_transfer)}');
     buffer.writeln('💸 Pengeluaran: ${currency.format(_totalPengeluaran)}');
-    buffer.writeln('📊 *SELISIH KAS:* ${currency.format(_selisihKas)}');
+    buffer.writeln('📊 *SISA OPERASIONAL:* ${currency.format(_sisaOperasional)}');
     buffer.writeln('🔢 ${_rentals.length} sesi sewa, ${_expenses.length} pengeluaran');
 
     await _kirimWa(buffer.toString());
@@ -164,18 +164,18 @@ class _ReportScreenState extends State<ReportScreen> {
           Center(child: Text(_periodLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
           const SizedBox(height: 16),
           Card(
-            color: _selisihKas >= 0 ? Colors.green.shade50 : Colors.red.shade50,
+            color: _sisaOperasional >= 0 ? Colors.green.shade50 : Colors.red.shade50,
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  const Text('SELISIH KAS (omzet sewa − pengeluaran)'),
+                  const Text('SISA OPERASIONAL (omzet sewa − pengeluaran)'),
                   Text(
-                    currency.format(_selisihKas),
+                    currency.format(_sisaOperasional),
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.w900,
-                      color: _selisihKas >= 0 ? Colors.green.shade800 : Colors.red.shade800,
+                      color: _sisaOperasional >= 0 ? Colors.green.shade800 : Colors.red.shade800,
                     ),
                   ),
                 ],

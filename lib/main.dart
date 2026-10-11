@@ -24,11 +24,8 @@ Future<void> _restoreRentalNotifications() async {
 
     for (final rental in rentals) {
       if (rental.id == null) continue;
-      final mulai = RentalTime.startOf(rental);
       final selesai = RentalTime.endOf(rental);
       if (!selesai.isAfter(now)) continue;
-      // Keep future reservations and sessions that are still running across midnight.
-      if (mulai.isBefore(now) && selesai.isBefore(now)) continue;
       try {
         await AlertService.instance.jadwalkanHabis(
           rentalId: rental.id!,
