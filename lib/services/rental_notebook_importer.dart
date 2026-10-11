@@ -42,7 +42,7 @@ class RentalNotebookImporter {
       return total > 0 ? total : null;
     }
 
-    final minuteValue = RegExp(r'(\d+)\s*(?:menit|min|mins?|m)\b?').firstMatch(text);
+    final minuteValue = RegExp(r'(\d+)\s*(?:menit|min|mins?|m)\b').firstMatch(text);
     if (minuteValue != null) {
       final minutes = int.tryParse(minuteValue.group(1) ?? '');
       return minutes != null && minutes > 0 ? minutes : null;
