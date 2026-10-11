@@ -256,6 +256,10 @@ class _NoteScanImportScreenState extends State<NoteScanImportScreen> {
   Widget _buildRowCard(int index, _ImportRowDraft row) {
     final ready = row.isReady && row.unitId != null;
     final disabled = row.alreadyImported;
+    final rowNumber = row.source['no']?.trim().isNotEmpty == true
+        ? row.source['no']!.trim()
+        : '${index + 1}';
+    final nameLabel = row.nama.text.trim().isEmpty ? 'Nama belum diisi' : row.nama.text.trim();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -272,7 +276,7 @@ class _NoteScanImportScreenState extends State<NoteScanImportScreen> {
                 ),
                 Expanded(
                   child: Text(
-                    'Baris ${row.source['no']?.isNotEmpty == true ? row.source['no'] : index + 1} · ${row.nama.text.isEmpty ? 'Nama belum diisi' : row.nama.text}',
+                    'Baris $rowNumber · $nameLabel',
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
