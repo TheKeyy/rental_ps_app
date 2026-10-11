@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import '../database/db_helper.dart';
 import '../services/rental_notebook_parser.dart';
+import 'note_scan_import_screen.dart';
 
 class NoteScansScreen extends StatefulWidget {
   const NoteScansScreen({super.key, this.initialDate});
@@ -207,6 +208,65 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
     }
   }
 
+  Future<void> _importPhotoRows(Map<String, dynamic> photo) async {
+    final id = photo['id'] as int?;
+    if (id == null) return;
+
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NoteScanImportScreen(
+          noteScanId: id,
+          date: photo['tanggal'] as String? ?? _dateKey,
+          rows: _decodeRows(photo),
+        ),
+      ),
+    );
+    if (!mounted || result == null) return;
+
+    await _loadPhotos();
+    if (!mounted) return;
+    final imported = result['imported'] as List? ?? const [];
+    final skipped = result['skipped'] as List? ?? const [];
+    _showMessage(
+      imported.isEmpty
+          ? 'Tidak ada transaksi baru. ${skipped.length} baris dilewati; periksa alasannya pada ringkasan hasil.'
+          : '${imported.length} transaksi masuk ke Catatan Hari. ${skipped.length} baris dilewati.',
+    );
+    if (skipped.isNotEmpty) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Hasil impor'),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Berhasil diimpor: ${imported.length}'),
+                  Text('Dilewati: ${skipped.length}'),
+                  const SizedBox(height: 10),
+                  for (final item in skipped)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        '• ${item is Map ? item['nama'] ?? 'Baris' : 'Baris'}: ${item is Map ? item['reason'] ?? 'Tidak diimpor' : 'Tidak diimpor'}',
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            FilledButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Mengerti')),
+          ],
+        ),
+      );
+    }
+  }
+
   Future<void> _editRows(Map<String, dynamic> photo) async {
     final id = photo['id'] as int?;
     if (id == null) return;
@@ -401,6 +461,18 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      _importPhotoRows(photo);
+                    },
+                    icon: const Icon(Icons.playlist_add_check_circle_outlined),
+                    label: const Text('Konfirmasi & Masukkan ke Catatan Hari'),
+                  ),
                 ),
               ],
             ),
