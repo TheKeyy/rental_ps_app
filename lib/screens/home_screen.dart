@@ -385,6 +385,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         ),
       ),
     );
+    if (mounted) await _loadAllData();
   }
 
   Widget _buildSummaryCard() {
