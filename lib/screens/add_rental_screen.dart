@@ -372,11 +372,14 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.42),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                   child: Text(
                     'Total main: $_totalMenitMain menit (${_totalMenitMain ~/ 60} jam ${_totalMenitMain % 60} mnt) '
                     'sampai ${RentalTime.formatJam(_startTime.add(Duration(minutes: _totalMenitMain)))}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
+                    style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.primary),
                   ),
                 ),
                 const SizedBox(height: 18),
