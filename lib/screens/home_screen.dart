@@ -10,7 +10,6 @@ import '../models/rental_model.dart';
 import '../services/alert_service.dart';
 import '../services/rental_time.dart';
 import '../services/settings_service.dart';
-import '../services/tariff.dart';
 import 'add_expense_screen.dart';
 import 'add_rental_screen.dart';
 import 'note_scan_screen.dart';
@@ -363,7 +362,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       else
                         const Text(
                           'Siap digunakan',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF15803D), fontWeight: FontWeight.w600),
+                          style: TextStyle(fontSize: 12, color: Color(0xFF15803D), fontWeight: FontWeight.w600),
                         ),
                       const Spacer(),
                     ],
@@ -593,7 +592,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             child: ListTile(
                               leading: CircleAvatar(
                                 backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                                child: Text('${_unitCodeFor(r.psNomor)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                child: Text(_unitCodeFor(r.psNomor), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                               ),
                               title: Text(r.nama, style: const TextStyle(fontWeight: FontWeight.bold)),
                               subtitle: Text('${r.waktuMulai} - ${r.waktuSelesai} (${r.durasiMenit}m) • ${r.metodeBayar}'),
