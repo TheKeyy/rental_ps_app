@@ -210,6 +210,99 @@ class DatabaseHelper {
   }
 
   // ==========================================
+  // DYNAMIC UNITS AND BOOKINGS
+  // ==========================================
+
+  Future<List<Map<String, dynamic>>> getRentalUnits({bool activeOnly = true}) async {
+    final db = await instance.database;
+    return db.query(
+      'rental_units',
+      where: activeOnly ? 'is_active = 1' : null,
+      orderBy: 'console_type ASC, unit_code ASC',
+    );
+  }
+
+  Future<int> saveRentalUnit({
+    int? id,
+    required String unitCode,
+    required String consoleType,
+    required String displayName,
+    required int hourlyRate,
+    bool active = true,
+  }) async {
+    final db = await instance.database;
+    final values = <String, Object?>{
+      'unit_code': unitCode.trim().toUpperCase(),
+      'console_type': consoleType.trim().toUpperCase(),
+      'display_name': displayName.trim(),
+      'hourly_rate': hourlyRate,
+      'is_active': active ? 1 : 0,
+      'created_at': DateTime.now().toIso8601String(),
+    };
+    if (id == null) return db.insert('rental_units', values);
+    values.remove('created_at');
+    return db.update('rental_units', values, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<List<Map<String, dynamic>>> getBookings({String? status}) async {
+    final db = await instance.database;
+    final where = status == null ? null : 'b.status = ?';
+    return db.rawQuery('''
+      SELECT b.*, u.unit_code, u.console_type, u.display_name
+      FROM bookings b JOIN rental_units u ON u.id = b.unit_id
+      ${where == null ? '' : 'WHERE $where'}
+      ORDER BY b.start_at ASC
+    ''', status == null ? null : [status]);
+  }
+
+  Future<bool> bookingBentrok({
+    required int unitId,
+    required String startAt,
+    required String endAt,
+    int? excludeId,
+  }) async {
+    final db = await instance.database;
+    final rows = await db.query(
+      'bookings',
+      where: "unit_id = ? AND status IN ('Menunggu', 'Dikonfirmasi') AND start_at < ? AND end_at > ?${excludeId == null ? '' : ' AND id != ?'}",
+      whereArgs: [unitId, endAt, startAt, if (excludeId != null) excludeId],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
+  Future<int> saveBooking({
+    int? id,
+    required String customerName,
+    required String customerPhone,
+    required int unitId,
+    required String startAt,
+    required String endAt,
+    required String status,
+    String note = '',
+  }) async {
+    final db = await instance.database;
+    final values = <String, Object?>{
+      'customer_name': customerName.trim(),
+      'customer_phone': customerPhone.trim(),
+      'unit_id': unitId,
+      'start_at': startAt,
+      'end_at': endAt,
+      'status': status,
+      'note': note.trim(),
+      'created_at': DateTime.now().toIso8601String(),
+    };
+    if (id == null) return db.insert('bookings', values);
+    values.remove('created_at');
+    return db.update('bookings', values, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> updateBookingStatus(int id, String status) async {
+    final db = await instance.database;
+    await db.update('bookings', {'status': status}, where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ==========================================
   // RENTALS
   // ==========================================
 
