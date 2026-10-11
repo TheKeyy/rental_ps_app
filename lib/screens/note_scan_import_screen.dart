@@ -376,13 +376,18 @@ class _ImportRowDraft {
     final duration = RentalNotebookImporter.parseDurationMinutes(source['sewa'] ?? '');
     final start = RentalNotebookImporter.parseStartTime(source['waktu'] ?? '');
     final amount = RentalNotebookImporter.parseAmount(source['saldo'] ?? '');
+    final sourceNo = (source['no'] ?? '').trim();
+    // The ledger row number stays stable when the operator corrects OCR cells.
+    final rowIdentity = sourceNo.isNotEmpty
+        ? 'row-no:${sourceNo.toLowerCase()}'
+        : RentalNotebookImporter.fingerprint(source);
     return _ImportRowDraft(
       source: Map<String, String>.from(source),
       nama: TextEditingController(text: source['nama'] ?? ''),
       waktu: TextEditingController(text: start ?? source['waktu'] ?? ''),
       durasi: TextEditingController(text: duration?.toString() ?? ''),
       saldo: TextEditingController(text: amount?.toString() ?? ''),
-      fingerprint: RentalNotebookImporter.fingerprint(source),
+      fingerprint: rowIdentity,
       metodeBayar: 'Cash',
     );
   }
