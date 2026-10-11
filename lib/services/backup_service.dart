@@ -87,10 +87,14 @@ class BackupService {
     }
 
     await DatabaseHelper.instance.closeDb();
+    var replacementStarted = false;
     try {
       if (await previous.exists()) await previous.delete();
       final destination = File(destinationPath);
       if (await destination.exists()) await destination.copy(previous.path);
+
+      // Only begin replacing the current DB after its backup copy has succeeded.
+      replacementStarted = true;
       if (await destination.exists()) await destination.delete();
       await staged.rename(destinationPath);
 
@@ -100,8 +104,10 @@ class BackupService {
       return true;
     } catch (e) {
       final destination = File(destinationPath);
-      if (await destination.exists()) await destination.delete();
-      if (await previous.exists()) await previous.rename(destinationPath);
+      if (replacementStarted) {
+        if (await destination.exists()) await destination.delete();
+        if (await previous.exists()) await previous.rename(destinationPath);
+      }
       await DatabaseHelper.instance.database;
       rethrow;
     } finally {
