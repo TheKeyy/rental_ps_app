@@ -129,6 +129,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     });
   }
 
+  String _unitCodeFor(int number) {
+    for (final unit in _unitRows) {
+      if (unit['unit_number'] == number) return unit['unit_code'] as String;
+    }
+    return 'PS $number';
+  }
+
   int get _omzetSewa => _rentalList.fold(0, (sum, r) => sum + r.saldo);
   int get _totalPengeluaran => _expenseList.fold(0, (sum, e) => sum + e.nominal);
   int get _sisaOperasional => _omzetSewa - _totalPengeluaran;
@@ -586,7 +593,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             child: ListTile(
                               leading: CircleAvatar(
                                 backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                                child: Text('${_unitRows.where((u) => u['unit_number'] == r.psNomor).map((u) => u['unit_code']).firstOrNull ?? 'PS ${r.psNomor}'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                child: Text('${_unitCodeFor(r.psNomor)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                               ),
                               title: Text(r.nama, style: const TextStyle(fontWeight: FontWeight.bold)),
                               subtitle: Text('${r.waktuMulai} - ${r.waktuSelesai} (${r.durasiMenit}m) • ${r.metodeBayar}'),
