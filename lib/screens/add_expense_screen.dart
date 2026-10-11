@@ -66,7 +66,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           DropdownButtonFormField<String>(
-            value: Expense.kategoriPilihan.contains(_kategori) ? _kategori : 'Lainnya',
+            initialValue: Expense.kategoriPilihan.contains(_kategori) ? _kategori : 'Lainnya',
             decoration: const InputDecoration(labelText: 'Kategori', prefixIcon: Icon(Icons.category_outlined)),
             items: Expense.kategoriPilihan
                 .map((k) => DropdownMenuItem(value: k, child: Text(k)))
