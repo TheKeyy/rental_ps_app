@@ -28,7 +28,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 4) {
@@ -62,6 +62,9 @@ class DatabaseHelper {
         }
         if (oldVersion < 10) {
           await _migrateV10(db);
+        }
+        if (oldVersion < 11) {
+          await _migrateV11(db);
         }
       },
     );
@@ -112,6 +115,7 @@ class DatabaseHelper {
         tanggal TEXT NOT NULL,
         image_blob BLOB NOT NULL,
         extracted_text TEXT NOT NULL DEFAULT '',
+        entries_json TEXT NOT NULL DEFAULT '[]',
         created_at TEXT NOT NULL
       )
     ''');
@@ -147,6 +151,24 @@ class DatabaseHelper {
 
   Future<void> _migrateV10(Database db) async {
     await _createNoteScansTable(db);
+  }
+
+  Future<void> _migrateV11(Database db) async {
+    final tables = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'note_scans'",
+    );
+    if (tables.isEmpty) {
+      await _createNoteScansTable(db);
+      return;
+    }
+
+    final columns = await db.rawQuery('PRAGMA table_info(note_scans)');
+    final names = columns.map((column) => column['name'] as String).toSet();
+    if (!names.contains('entries_json')) {
+      await db.execute(
+        "ALTER TABLE note_scans ADD COLUMN entries_json TEXT NOT NULL DEFAULT '[]'",
+      );
+    }
   }
 
   // ==========================================
@@ -364,6 +386,7 @@ class DatabaseHelper {
     required String tanggal,
     required List<int> imageBytes,
     required String extractedText,
+    required String entriesJson,
     required String createdAt,
   }) async {
     final db = await instance.database;
@@ -371,6 +394,7 @@ class DatabaseHelper {
       'tanggal': tanggal,
       'image_blob': imageBytes,
       'extracted_text': extractedText,
+      'entries_json': entriesJson,
       'created_at': createdAt,
     });
   }
@@ -393,6 +417,23 @@ class DatabaseHelper {
     return db.update(
       'note_scans',
       {'extracted_text': extractedText},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> updateNoteScanReview({
+    required int id,
+    required String extractedText,
+    required String entriesJson,
+  }) async {
+    final db = await instance.database;
+    return db.update(
+      'note_scans',
+      {
+        'extracted_text': extractedText,
+        'entries_json': entriesJson,
+      },
       where: 'id = ?',
       whereArgs: [id],
     );
