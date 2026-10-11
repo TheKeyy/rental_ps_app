@@ -590,7 +590,7 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                '${rowCount} baris rekap • ketuk untuk membuka',
+                                '$rowCount baris rekap • ketuk untuk membuka',
                                 style: const TextStyle(fontSize: 11, color: Color(0xFF4F46E5)),
                               ),
                             ],
