@@ -728,7 +728,7 @@ class DatabaseHelper {
         final existingRows = await txn.query(
           'rentals',
           where: 'ps_nomor = ? AND tanggal >= ? AND tanggal <= ?',
-          whereArgs: [psNomor, dateKey(dayBefore), dateKey(dayAfter)],
+          whereArgs: [validPsNomor, dateKey(dayBefore), dateKey(dayAfter)],
         );
         var rentalConflict = false;
         for (final existingRow in existingRows) {
@@ -748,7 +748,7 @@ class DatabaseHelper {
         final bookings = await txn.query(
           'bookings',
           where: "unit_id = ? AND status IN ('Menunggu', 'Dikonfirmasi')",
-          whereArgs: [unitId],
+          whereArgs: [validUnitId],
         );
         var bookingConflict = false;
         for (final booking in bookings) {
