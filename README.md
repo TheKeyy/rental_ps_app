@@ -9,12 +9,13 @@ Aplikasi Flutter untuk membantu operasional rental PlayStation dan pencatatan ka
 - Pilihan durasi, tarif paket yang dapat diatur, serta metode pembayaran tunai atau transfer.
 - Penyimpanan deposit/sisa waktu pelanggan.
 - Pengingat lokal lima menit sebelum waktu habis dan saat sesi selesai.
+- Arsip foto buku catatan per tanggal dari kamera atau galeri, dengan pembacaan teks lokal (OCR) yang dapat dikoreksi sebelum disimpan.
 - Pencatatan pengeluaran operasional.
 - Rekap harian dan laporan periode tujuh hari, bulan berjalan, dan bulan sebelumnya.
 - Berbagi rekap melalui WhatsApp.
 - Pengaturan nama rental, jumlah unit, tarif, PIN lokal kasir, serta backup/pemulihan database.
 
-Aplikasi ini berfokus pada rental PS. Fitur katalog, stok, dan kasir jajanan/snack telah dihapus dari antarmuka dan kode aplikasi. Database lama tidak menghapus tabel snack secara otomatis saat aplikasi diperbarui, demi mencegah penghapusan data lama tanpa sengaja; tabel tersebut tidak lagi digunakan aplikasi.
+Aplikasi ini berfokus pada rental PS. Foto buku catatan dan teks hasil OCR tersimpan lokal di database yang sama, sehingga ikut tercakup dalam backup database. OCR hanya bantuan pembacaan; tulisan tangan, angka, dan nominal tetap harus dicek dan dikoreksi secara manual sebelum dipakai sebagai data transaksi. Fitur katalog, stok, dan kasir jajanan/snack telah dihapus dari antarmuka dan kode aplikasi. Database lama tidak menghapus tabel snack secara otomatis saat aplikasi diperbarui, demi mencegah penghapusan data lama tanpa sengaja; tabel tersebut tidak lagi digunakan aplikasi.
 
 ## Menjalankan aplikasi
 
