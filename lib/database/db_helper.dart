@@ -119,7 +119,6 @@ class DatabaseHelper {
   Future<void> _migrateV8(Database db) async {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_rentals_tanggal ON rentals(tanggal)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_expenses_tanggal ON expenses(tanggal)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_snack_orders_tanggal ON snack_orders(tanggal)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_deposits_nama ON time_deposits(nama)');
   }
 
