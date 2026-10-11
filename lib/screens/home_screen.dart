@@ -246,22 +246,18 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           return SizedBox(
             width: 180,
             child: Card(
-              color: !isBusy
-                  ? Colors.teal.shade50
-                  : isWarning
-                      ? Colors.orange.shade50
-                      : Colors.blue.shade50,
-              elevation: 2,
+              color: Colors.white,
+              elevation: 0,
               shape: RoundedRectangleBorder(
                 side: BorderSide(
                   color: !isBusy
-                      ? Colors.teal.shade300
+                      ? const Color(0xFFB7E4C7)
                       : isWarning
-                          ? Colors.orange.shade400
-                          : Colors.blue.shade300,
-                  width: 1.5,
+                          ? const Color(0xFFF4D29B)
+                          : const Color(0xFFC7D2FE),
+                  width: 1.2,
                 ),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(10),
@@ -305,16 +301,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
-                          color: isWarning ? Colors.deepOrange : Colors.blue.shade900,
+                          color: isWarning ? const Color(0xFFB45309) : const Color(0xFF3730A3),
                         ),
                       ),
                       InkWell(
                         onTap: () => _simpanSisaWaktuModal(aktif),
                         child: const Row(
                           children: [
-                            Icon(Icons.save_as, size: 14, color: Colors.blue),
+                            Icon(Icons.save_as, size: 14, color: Theme.of(context).colorScheme.primary),
                             SizedBox(width: 4),
-                            Text('Stop & simpan sisa', style: TextStyle(fontSize: 11, color: Colors.blue)),
+                            Text('Stop & simpan sisa', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.primary)),
                           ],
                         ),
                       ),
@@ -502,7 +498,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.calendar_month, size: 16, color: Colors.blue),
+                      Icon(Icons.calendar_month, size: 16, color: Theme.of(context).colorScheme.primary),
                       const SizedBox(width: 6),
                       Text(
                         DateFormat('EEEE, dd MMMM yyyy').format(DateTime.parse(_selectedDate)),
@@ -543,14 +539,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                             child: ListTile(
                               leading: CircleAvatar(
-                                backgroundColor: Colors.blue.shade100,
+                                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                                 child: Text('PS ${r.psNomor}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                               ),
                               title: Text(r.nama, style: const TextStyle(fontWeight: FontWeight.bold)),
                               subtitle: Text('${r.waktuMulai} - ${r.waktuSelesai} (${r.durasiMenit}m) • ${r.metodeBayar}'),
                               trailing: Text(
                                 currency.format(r.saldo),
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                                style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
                               ),
                               onTap: () async {
                                 final updated = await Navigator.push(
@@ -653,8 +649,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             children: [
               IconButton(
                 style: IconButton.styleFrom(
-                  backgroundColor: Colors.green.shade600,
-                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.white,
+                  foregroundColor: Theme.of(context).colorScheme.primary,
                 ),
                 icon: const Icon(Icons.share),
                 tooltip: 'Bagikan Rekap ke WA',
@@ -664,7 +660,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               Expanded(
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _tabController.index == 1 ? Colors.redAccent : Colors.blue,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
                     minimumSize: const Size.fromHeight(44),
                   ),
