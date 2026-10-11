@@ -71,7 +71,10 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
 
   Future<void> _checkActiveUnits() async {
     final transStr = DateFormat('yyyy-MM-dd').format(_tanggalTransaksi);
-    final rentals = await DatabaseHelper.instance.getRentalsByDate(transStr);
+    final selectedDay = DateTime.parse(transStr);
+    final previousDay = DateFormat('yyyy-MM-dd').format(selectedDay.subtract(const Duration(days: 1)));
+    final rentals = await DatabaseHelper.instance.getRentalsByDateRange(previousDay, transStr);
+    if (!mounted) return;
     setState(() {
       _sewaHariIni = rentals;
       _isLoadingStatus = false;
@@ -98,7 +101,9 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
       _updateTarifOtomatis();
       return;
     }
-    final sisa = await DatabaseHelper.instance.getSisaMenit(nama.trim());
+    final namaCek = nama.trim();
+    final sisa = await DatabaseHelper.instance.getSisaMenit(namaCek);
+    if (!mounted || _namaController.text.trim() != namaCek) return;
     setState(() {
       _depositTersedia = sisa;
       _depositDipakai = sisa;
@@ -107,12 +112,7 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
   }
 
   void _updateTarifOtomatis() {
-    if (_durasiBaruMenit == 10) {
-      _saldoController.text = '1000';
-    } else {
-      final tarif = SettingsService.instance.tarifUntuk(_durasiBaruMenit);
-      _saldoController.text = tarif.toString();
-    }
+    _saldoController.text = SettingsService.instance.tarifUntuk(_durasiBaruMenit).toString();
   }
 
   Future<void> _pickDate() async {
@@ -156,6 +156,13 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
 
     final totalDurasiMain = _totalMenitMain;
     if (totalDurasiMain <= 0) return;
+    final nominal = int.tryParse(_saldoController.text);
+    if (nominal == null || nominal < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tarif tidak boleh kosong atau negatif.')),
+      );
+      return;
+    }
 
     final startTime = _startTime;
     final endTime = startTime.add(Duration(minutes: totalDurasiMain));
@@ -181,10 +188,6 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
       return;
     }
 
-    if (!_editMode && _depositDipakai > 0) {
-      await DatabaseHelper.instance.gunakanSisaMenit(nama, _depositDipakai);
-    }
-
     final namaSimpan = (!_editMode && _depositDipakai > 0) ? '$nama (Sisa ${_depositDipakai}m)' : nama;
 
     final rental = Rental(
@@ -194,24 +197,50 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
       waktuMulai: RentalTime.formatJam(startTime),
       waktuSelesai: RentalTime.formatJam(endTime),
       durasiMenit: totalDurasiMain,
-      saldo: int.tryParse(_saldoController.text) ?? 0,
+      saldo: nominal,
       metodeBayar: _metodeBayar,
       tanggal: DateFormat('yyyy-MM-dd').format(_tanggalTransaksi),
     );
 
-    if (_editMode) {
-      await DatabaseHelper.instance.updateRental(rental);
-    } else {
-      await DatabaseHelper.instance.insertRental(rental);
+    late final int rentalId;
+    try {
+      rentalId = await DatabaseHelper.instance.simpanRentalAtomik(
+        rental,
+        editMode: _editMode,
+        namaDeposit: _editMode ? null : nama,
+        menitDeposit: _editMode ? 0 : _depositDipakai,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Transaksi gagal disimpan: $e')),
+      );
+      return;
     }
 
-    await AlertService.instance.jadwalkanHabis(
-      psNomor: rental.psNomor,
-      nama: rental.nama,
-      selesai: endTime,
-    );
+    try {
+      await AlertService.instance.jadwalkanHabis(
+        rentalId: rentalId,
+        psNomor: rental.psNomor,
+        nama: rental.nama,
+        selesai: endTime,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sewa tersimpan, tetapi notifikasi gagal dijadwalkan.')),
+        );
+      }
+    }
 
     if (mounted) Navigator.pop(context, true);
+  }
+
+  @override
+  void dispose() {
+    _namaController.dispose();
+    _saldoController.dispose();
+    super.dispose();
   }
 
   @override

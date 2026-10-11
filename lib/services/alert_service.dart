@@ -18,6 +18,8 @@ class AlertService {
 
     final androidPlugin = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     await androidPlugin?.requestNotificationsPermission();
+    // Clear legacy unit-based IDs; main() rebuilds reminders from saved rental sessions.
+    await _plugin.cancelAll();
     _siap = true;
   }
 
@@ -26,19 +28,20 @@ class AlertService {
     await HapticFeedback.heavyImpact();
   }
 
-  Future<void> batalkanSemua(int psNomor) async {
+  Future<void> batalkanUntukSewa(int rentalId) async {
     if (!_siap) return;
-    await _plugin.cancel(psNomor * 10);
-    await _plugin.cancel(psNomor * 10 + 1);
+    await _plugin.cancel(rentalId * 2);
+    await _plugin.cancel(rentalId * 2 + 1);
   }
 
   Future<void> jadwalkanHabis({
+    required int rentalId,
     required int psNomor,
     required String nama,
     required DateTime selesai,
   }) async {
     if (!_siap) return;
-    await batalkanSemua(psNomor);
+    await batalkanUntukSewa(rentalId);
     final now = DateTime.now();
     if (!selesai.isAfter(now)) return;
 
@@ -55,7 +58,7 @@ class AlertService {
     final lima = selesai.subtract(const Duration(minutes: 5));
     if (lima.isAfter(now)) {
       await _plugin.zonedSchedule(
-        psNomor * 10,
+        rentalId * 2,
         'Sisa 5 menit',
         'PS $psNomor ($nama) hampir habis',
         tz.TZDateTime.from(lima, tz.local),
@@ -66,7 +69,7 @@ class AlertService {
     }
 
     await _plugin.zonedSchedule(
-      psNomor * 10 + 1,
+      rentalId * 2 + 1,
       'Waktu habis',
       'PS $psNomor ($nama) sudah selesai',
       tz.TZDateTime.from(selesai, tz.local),

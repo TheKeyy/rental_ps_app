@@ -35,12 +35,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _simpan() async {
+    final hargaPer10 = int.tryParse(_per10Ctrl.text);
+    if (hargaPer10 == null || hargaPer10 < 0 || _paket.values.any((harga) => harga < 0)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tarif harus berupa angka nol atau lebih.')),
+      );
+      return;
+    }
+
     final s = SettingsService.instance;
     await s.setNamaWarung(_namaCtrl.text);
     await s.setNomorWa(_waCtrl.text);
     await s.setJumlahPs(_jumlahPs);
     await s.setPin(aktif: _pinOn, pin: _pinCtrl.text);
-    await s.setHargaPer10(int.tryParse(_per10Ctrl.text) ?? Tariff.hargaPer10Default);
+    await s.setHargaPer10(hargaPer10);
     await s.setPaket(_paket);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pengaturan disimpan')));

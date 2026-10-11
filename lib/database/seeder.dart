@@ -1,7 +1,6 @@
 import 'db_helper.dart';
 import '../models/rental_model.dart';
 import '../models/expense_model.dart';
-import '../models/snack_model.dart';
 
 class DatabaseSeeder {
   static Future<void> seedHistoryData() async {
@@ -11,7 +10,6 @@ class DatabaseSeeder {
     // Bersihkan tabel agar re-seed bersih total dan tidak ada duplikat
     await database.delete('rentals');
     await database.delete('expenses');
-    await database.delete('snack_orders');
 
     final List<Rental> rentals = [
       // ==========================================
@@ -414,27 +412,8 @@ class DatabaseSeeder {
     // REKAP PENGELUARAN & OPERASIONAL BUKU
     // ==========================================
     // Minggu 1
-    await db.insertExpense(Expense(
-      keterangan: 'Belanja Snack Minggu 1',
-      nominal: 205000,
-      tanggal: '2026-08-23',
-      waktu: '20:00',
-    ));
-    await db.insertSnackOrder(SnackOrder(
-      namaPembeli: 'Total Jajan Minggu 1',
-      detailItem: 'Rekap Penjualan Snack & Minuman',
-      totalHarga: 33500,
-      tanggal: '2026-08-23',
-      waktu: '20:00',
-    ));
 
     // Minggu 2
-    await db.insertExpense(Expense(
-      keterangan: 'Belanja Snack Minggu 2',
-      nominal: 262000,
-      tanggal: '2026-08-30',
-      waktu: '20:00',
-    ));
 
     // Minggu 3 (Sesuai Catatan Pengeluaran Minggu ke-3)
     await db.insertExpense(Expense(
