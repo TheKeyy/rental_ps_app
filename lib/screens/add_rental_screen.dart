@@ -381,10 +381,10 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
                             avatar: sibuk ? const Icon(Icons.lock_clock, size: 16, color: Colors.red) : null,
                             label: Text(
                               sibuk
-                                  ?? '$unitCode (dipakai: ${aktif.nama})'
-                                   : next != null
-                                       ? '$unitCode (antrian ${next.waktuMulai})'
-                                       : '$unitCode (tersedia)',
+                                  ? '$unitCode (dipakai: ${aktif.nama})'
+                                  : next != null
+                                      ? '$unitCode (antrian ${next.waktuMulai})'
+                                      : '$unitCode (tersedia)',
                             ),
                             selected: _selectedPS == ps,
                             onSelected: (_) => setState(() => _selectedPS = ps),
