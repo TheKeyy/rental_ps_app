@@ -28,7 +28,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 4) {
@@ -59,6 +59,9 @@ class DatabaseHelper {
         }
         if (oldVersion < 9) {
           await _migrateV9(db);
+        }
+        if (oldVersion < 10) {
+          await _migrateV10(db);
         }
       },
     );
@@ -98,7 +101,23 @@ class DatabaseHelper {
       )
     ''');
 
+    await _createNoteScansTable(db);
     await _createIndexes(db);
+  }
+
+  Future<void> _createNoteScansTable(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS note_scans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tanggal TEXT NOT NULL,
+        image_blob BLOB NOT NULL,
+        extracted_text TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_note_scans_tanggal ON note_scans(tanggal)',
+    );
   }
 
   Future<void> _createIndexes(DatabaseExecutor db) async {
@@ -124,6 +143,10 @@ class DatabaseHelper {
 
   Future<void> _migrateV9(Database db) async {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_rentals_ps_nomor ON rentals(ps_nomor)');
+  }
+
+  Future<void> _migrateV10(Database db) async {
+    await _createNoteScansTable(db);
   }
 
   // ==========================================
@@ -332,5 +355,39 @@ class DatabaseHelper {
     return await db.query('time_deposits', where: 'sisa_menit > 0', orderBy: 'nama ASC');
   }
 
+
+  // ==========================================
+  // NOTEBOOK PHOTO ARCHIVE
+  // ==========================================
+
+  Future<int> insertNoteScan({
+    required String tanggal,
+    required List<int> imageBytes,
+    required String extractedText,
+    required String createdAt,
+  }) async {
+    final db = await instance.database;
+    return db.insert('note_scans', {
+      'tanggal': tanggal,
+      'image_blob': imageBytes,
+      'extracted_text': extractedText,
+      'created_at': createdAt,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getNoteScansByDate(String tanggal) async {
+    final db = await instance.database;
+    return db.query(
+      'note_scans',
+      where: 'tanggal = ?',
+      whereArgs: [tanggal],
+      orderBy: 'id DESC',
+    );
+  }
+
+  Future<int> deleteNoteScan(int id) async {
+    final db = await instance.database;
+    return db.delete('note_scans', where: 'id = ?', whereArgs: [id]);
+  }
 
 }
