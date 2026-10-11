@@ -288,7 +288,8 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
                   controller: _namaController,
                   decoration: const InputDecoration(
                     labelText: 'Nama penyewa',
-                                        hintText: 'Ketik nama untuk cek sisa waktu...',
+                    prefixIcon: Icon(Icons.person_outline),
+                    hintText: 'Ketik nama untuk cek sisa waktu...',
                   ),
                   onChanged: _checkDeposit,
                 ),
@@ -320,7 +321,9 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
+                Text('Unit dan durasi', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
                 const Text('Pilih unit PS:', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
                 Wrap(
@@ -376,12 +379,15 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
                     style: const TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
+                Text('Pembayaran', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 10),
                 TextField(
                   controller: _saldoController,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
                     labelText: 'Tarif yang wajib dibayar (Rp)',
+                    prefixIcon: Icon(Icons.payments_outlined),
                     border: OutlineInputBorder(),
                   ),
                 ),
