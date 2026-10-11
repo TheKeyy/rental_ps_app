@@ -7,17 +7,14 @@ import 'package:url_launcher/url_launcher.dart';
 import '../database/db_helper.dart';
 import '../models/expense_model.dart';
 import '../models/rental_model.dart';
-import '../models/snack_model.dart';
 import '../services/alert_service.dart';
 import '../services/rental_time.dart';
 import '../services/settings_service.dart';
 import '../services/tariff.dart';
 import 'add_expense_screen.dart';
 import 'add_rental_screen.dart';
-import 'add_snack_screen.dart';
 import 'report_screen.dart';
 import 'settings_screen.dart';
-import 'snack_inventory_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -30,8 +27,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   late TabController _tabController;
   late String _selectedDate;
   List<Rental> _rentalList = [];
+  List<Rental> _todayRentalList = [];
   List<Expense> _expenseList = [];
-  List<SnackOrder> _snackOrderList = [];
   Timer? _timer;
   String _timerSignature = '';
   final Set<String> _playedAlarms = {};
@@ -39,7 +36,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
@@ -66,12 +63,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   String _buildTimerSignature() {
     final now = DateTime.now();
     final buffer = StringBuffer();
-    for (final r in _rentalList) {
-      if (r.tanggal != DateFormat('yyyy-MM-dd').format(now)) continue;
+    for (final r in _todayRentalList) {
       final start = RentalTime.startOf(r);
       final end = RentalTime.endOf(r);
       if (now.isAfter(start) && now.isBefore(end)) {
-        buffer.write('${r.id}_${end.difference(now).inSeconds}|');
+        buffer.write('${r.id}_${end.millisecondsSinceEpoch}_${end.difference(now).inSeconds}|');
       }
     }
     return buffer.toString();
@@ -79,18 +75,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   void _checkTimersForAlert() {
     final now = DateTime.now();
-    for (final r in _rentalList) {
-      if (r.tanggal != DateFormat('yyyy-MM-dd').format(now)) continue;
+    for (final r in _todayRentalList) {
       final end = RentalTime.endOf(r);
       final sisaDetik = end.difference(now).inSeconds;
 
-      final key5 = '${r.id}_5m';
+      final key5 = '${r.id}_${end.millisecondsSinceEpoch}_5m';
       if (sisaDetik <= 300 && sisaDetik > 290 && !_playedAlarms.contains(key5)) {
         _playedAlarms.add(key5);
         AlertService.instance.bunyiLokal();
       }
 
-      final key0 = '${r.id}_0m';
+      final key0 = '${r.id}_${end.millisecondsSinceEpoch}_0m';
       if (sisaDetik <= 0 && sisaDetik >= -5 && !_playedAlarms.contains(key0)) {
         _playedAlarms.add(key0);
         AlertService.instance.bunyiLokal();
@@ -99,24 +94,25 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _loadAllData() async {
+    final today = DateTime.now();
+    final yesterdayStr = DateFormat('yyyy-MM-dd').format(today.subtract(const Duration(days: 1)));
+
     final rentals = await DatabaseHelper.instance.getRentalsByDate(_selectedDate);
     final expenses = await DatabaseHelper.instance.getExpensesByDate(_selectedDate);
-    final snacks = await DatabaseHelper.instance.getSnackOrdersByDate(_selectedDate);
+    // Live status/timers must not stop working just because an older date is selected.
+    final liveRentals = await DatabaseHelper.instance.getRentalsByDateRange(yesterdayStr, DateFormat('yyyy-MM-dd').format(today.add(const Duration(days: 1))));
 
-    if (mounted) {
-      setState(() {
-        _rentalList = rentals;
-        _expenseList = expenses;
-        _snackOrderList = snacks;
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _rentalList = rentals;
+      _expenseList = expenses;
+      _todayRentalList = liveRentals;
+    });
   }
 
   int get _omzetSewa => _rentalList.fold(0, (sum, r) => sum + r.saldo);
-  int get _omzetSnack => _snackOrderList.fold(0, (sum, s) => sum + s.totalHarga);
   int get _totalPengeluaran => _expenseList.fold(0, (sum, e) => sum + e.nominal);
-  int get _omzetTotal => _omzetSewa + _omzetSnack;
-  int get _labaBersih => _omzetTotal - _totalPengeluaran;
+  int get _selisihKas => _omzetSewa - _totalPengeluaran;
 
   Future<void> _pickDate() async {
     final cur = DateTime.tryParse(_selectedDate) ?? DateTime.now();
@@ -144,10 +140,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     buffer.writeln('🗓️ Tanggal: $tanggalFormat');
     buffer.writeln('----------------------------------');
     buffer.writeln('🕹️ Omzet Sewa PS: ${currency.format(_omzetSewa)} (${_rentalList.length} sesi)');
-    buffer.writeln('🍿 Omzet Snack/F&B: ${currency.format(_omzetSnack)} (${_snackOrderList.length} order)');
-    buffer.writeln('💵 Total Kas Masuk: ${currency.format(_omzetTotal)}');
     buffer.writeln('💸 Pengeluaran: ${currency.format(_totalPengeluaran)} (${_expenseList.length} pos)');
-    buffer.writeln('📈 *LABA BERSIH:* ${currency.format(_labaBersih)}');
+    buffer.writeln('📊 *SELISIH KAS:* ${currency.format(_selisihKas)}');
+    buffer.writeln('🔢 ${_rentalList.length} sesi sewa');
     buffer.writeln('----------------------------------');
 
     final message = Uri.encodeComponent(buffer.toString());
@@ -200,13 +195,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               Navigator.pop(ctx);
               await DatabaseHelper.instance.tambahSisaMenit(namaClean, sisaMenit);
 
-              final durasiBaru = rental.durasiMenit - sisaMenit;
+              final durasiBaru = now.difference(RentalTime.startOf(rental)).inMinutes;
               final rBaru = rental.copyWith(
                 durasiMenit: durasiBaru < 0 ? 0 : durasiBaru,
                 waktuSelesai: RentalTime.formatJam(now),
               );
               await DatabaseHelper.instance.updateRental(rBaru);
-              await AlertService.instance.batalkanSemua(rental.psNomor);
+              if (rental.id != null) await AlertService.instance.batalkanUntukSewa(rental.id!);
               _loadAllData();
 
               if (mounted) {
@@ -235,8 +230,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
           final ps = index + 1;
-          final aktif = RentalTime.aktifUntukPs(_rentalList, ps, now);
-          final next = RentalTime.berikutnyaUntukPs(_rentalList, ps, now);
+          final aktif = RentalTime.aktifUntukPs(_todayRentalList, ps, now);
+          final next = RentalTime.berikutnyaUntukPs(_todayRentalList, ps, now);
 
           Duration diff = Duration.zero;
           if (aktif != null) {
@@ -364,19 +359,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Sewa PS', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    const Text('Omzet Sewa', style: TextStyle(fontSize: 11, color: Colors.grey)),
                     Text(currency.format(_omzetSewa), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
                   ],
                 ),
                 Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Text('Snack / F&B', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                    Text(currency.format(_omzetSnack), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+                    const Text('Sesi Sewa', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    Text('${_rentalList.length}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
                   ],
                 ),
                 Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     const Text('Pengeluaran', style: TextStyle(fontSize: 11, color: Colors.grey)),
                     Text(currency.format(_totalPengeluaran), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
@@ -388,13 +383,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Laba Bersih Hari Ini:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Selisih Kas:', style: TextStyle(fontWeight: FontWeight.bold)),
                 Text(
-                  currency.format(_labaBersih),
+                  currency.format(_selisihKas),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
-                    color: _labaBersih >= 0 ? Colors.green.shade800 : Colors.red.shade800,
+                    color: _selisihKas >= 0 ? Colors.green.shade800 : Colors.red.shade800,
                   ),
                 ),
               ],
@@ -413,14 +408,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       appBar: AppBar(
         title: Text(SettingsService.instance.namaWarung),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.inventory),
-            tooltip: 'Katalog & Stok Jajan',
-            onPressed: () async {
-              await Navigator.push(context, MaterialPageRoute(builder: (_) => const SnackInventoryScreen()));
-              _loadAllData();
-            },
-          ),
           IconButton(
             icon: const Icon(Icons.analytics_outlined),
             tooltip: 'Laporan',
@@ -465,7 +452,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 tabs: [
                   Tab(text: 'Sewa (${_rentalList.length})'),
                   Tab(text: 'Keluar (${_expenseList.length})'),
-                  Tab(text: 'Jajan (${_snackOrderList.length})'),
                 ],
               ),
             ],
@@ -521,7 +507,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                         onPressed: () async {
                                           Navigator.pop(ctx);
                                           await DatabaseHelper.instance.deleteRental(r.id!);
-                                          await AlertService.instance.batalkanSemua(r.psNomor);
+                                          await AlertService.instance.batalkanUntukSewa(r.id!);
                                           _loadAllData();
                                         },
                                         child: const Text('Hapus'),
@@ -589,50 +575,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         },
                       ),
 
-                // TAB 3: SNACK ORDERS LIST
-                _snackOrderList.isEmpty
-                    ? const Center(child: Text('Belum ada penjualan snack/jajan hari ini.'))
-                    : ListView.builder(
-                        itemCount: _snackOrderList.length,
-                        itemBuilder: (context, index) {
-                          final s = _snackOrderList[index];
-                          return Card(
-                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: Colors.orange.shade100,
-                                child: const Icon(Icons.fastfood, color: Colors.deepOrange, size: 20),
-                              ),
-                              title: Text(s.namaPembeli, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text('${s.detailItem} • ${s.waktu}'),
-                              trailing: Text(
-                                currency.format(s.totalHarga),
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange),
-                              ),
-                              onLongPress: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: const Text('Hapus order jajan?'),
-                                    content: Text('Hapus order milik "${s.namaPembeli}"?'),
-                                    actions: [
-                                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
-                                      ElevatedButton(
-                                        onPressed: () async {
-                                          Navigator.pop(ctx);
-                                          await DatabaseHelper.instance.deleteSnackOrder(s.id!);
-                                          _loadAllData();
-                                        },
-                                        child: const Text('Hapus'),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          );
-                        },
-                      ),
               ],
             ),
           ),
@@ -651,25 +593,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 icon: const Icon(Icons.share),
                 tooltip: 'Bagikan Rekap ke WA',
                 onPressed: _exportWhatsApp,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange.shade700,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(44),
-                  ),
-                  icon: const Icon(Icons.fastfood, size: 18),
-                  label: const Text('+ Kasir Jajan'),
-                  onPressed: () async {
-                    final res = await Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => AddSnackScreen(selectedDate: _selectedDate)),
-                    );
-                    if (res == true) _loadAllData();
-                  },
-                ),
               ),
               const SizedBox(width: 8),
               Expanded(

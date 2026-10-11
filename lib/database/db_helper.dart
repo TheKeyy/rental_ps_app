@@ -2,8 +2,6 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/rental_model.dart';
 import '../models/expense_model.dart';
-import '../models/snack_item_model.dart';
-import '../models/snack_model.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -56,9 +54,6 @@ class DatabaseHelper {
         if (oldVersion < 6) {
           await _migrateV6(db);
         }
-        if (oldVersion < 7) {
-          await _migrateV7(db);
-        }
         if (oldVersion < 8) {
           await _migrateV8(db);
         }
@@ -103,26 +98,6 @@ class DatabaseHelper {
       )
     ''');
 
-    await db.execute('''
-      CREATE TABLE snack_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nama TEXT NOT NULL,
-        harga INTEGER NOT NULL,
-        stok INTEGER NOT NULL
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE snack_orders (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nama_pembeli TEXT NOT NULL,
-        detail_item TEXT NOT NULL,
-        total_harga INTEGER NOT NULL,
-        tanggal TEXT NOT NULL,
-        waktu TEXT NOT NULL
-      )
-    ''');
-
     await _createIndexes(db);
   }
 
@@ -130,7 +105,6 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_rentals_tanggal ON rentals(tanggal)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_rentals_ps_nomor ON rentals(ps_nomor)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_expenses_tanggal ON expenses(tanggal)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_snack_orders_tanggal ON snack_orders(tanggal)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_deposits_nama ON time_deposits(nama)');
   }
 
@@ -140,28 +114,6 @@ class DatabaseHelper {
     if (!names.contains('kategori')) {
       await db.execute("ALTER TABLE expenses ADD COLUMN kategori TEXT NOT NULL DEFAULT 'Lainnya'");
     }
-  }
-
-  Future<void> _migrateV7(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS snack_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nama TEXT NOT NULL,
-        harga INTEGER NOT NULL,
-        stok INTEGER NOT NULL
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS snack_orders (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nama_pembeli TEXT NOT NULL,
-        detail_item TEXT NOT NULL,
-        total_harga INTEGER NOT NULL,
-        tanggal TEXT NOT NULL,
-        waktu TEXT NOT NULL
-      )
-    ''');
   }
 
   Future<void> _migrateV8(Database db) async {
@@ -189,6 +141,66 @@ class DatabaseHelper {
     return await db.update('rentals', rental.toMap(), where: 'id = ?', whereArgs: [rental.id]);
   }
 
+  /// Saves a rental and consumes any time deposit in one SQLite transaction.
+  /// If either operation fails, both changes are rolled back.
+  Future<int> simpanRentalAtomik(
+    Rental rental, {
+    required bool editMode,
+    String? namaDeposit,
+    int menitDeposit = 0,
+  }) async {
+    final db = await instance.database;
+    return db.transaction<int>((txn) async {
+      if (!editMode && menitDeposit > 0) {
+        final namaBersih = (namaDeposit ?? '').trim();
+        if (namaBersih.isEmpty) {
+          throw StateError('Nama pelanggan diperlukan untuk memakai deposit.');
+        }
+
+        final rows = await txn.query(
+          'time_deposits',
+          where: 'LOWER(nama) = ?',
+          whereArgs: [namaBersih.toLowerCase()],
+          limit: 1,
+        );
+        if (rows.isEmpty) {
+          throw StateError('Deposit waktu tidak ditemukan. Periksa kembali nama pelanggan.');
+        }
+
+        final tersedia = rows.first['sisa_menit'] as int;
+        if (tersedia < menitDeposit) {
+          throw StateError('Sisa waktu berubah. Muat ulang nama pelanggan sebelum menyimpan.');
+        }
+
+        final sisaBaru = tersedia - menitDeposit;
+        if (sisaBaru <= 0) {
+          await txn.delete(
+            'time_deposits',
+            where: 'LOWER(nama) = ?',
+            whereArgs: [namaBersih.toLowerCase()],
+          );
+        } else {
+          await txn.update(
+            'time_deposits',
+            {'sisa_menit': sisaBaru},
+            where: 'LOWER(nama) = ?',
+            whereArgs: [namaBersih.toLowerCase()],
+          );
+        }
+      }
+
+      if (editMode) {
+        final id = rental.id;
+        if (id == null) throw StateError('ID sewa tidak ditemukan.');
+        await txn.update('rentals', rental.toMap(), where: 'id = ?', whereArgs: [id]);
+        return id;
+      }
+
+      final values = rental.toMap()..remove('id');
+      return txn.insert('rentals', values);
+    });
+  }
+
   Future<int> deleteRental(int id) async {
     final db = await instance.database;
     return await db.delete('rentals', where: 'id = ?', whereArgs: [id]);
@@ -212,6 +224,17 @@ class DatabaseHelper {
       where: 'tanggal >= ? AND tanggal <= ?',
       whereArgs: [startDate, endDate],
       orderBy: 'tanggal DESC, id DESC',
+    );
+    return result.map((json) => Rental.fromMap(json)).toList();
+  }
+
+  Future<List<Rental>> getRentalsFromDate(String startDate) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'rentals',
+      where: 'tanggal >= ?',
+      whereArgs: [startDate],
+      orderBy: 'tanggal ASC, id ASC',
     );
     return result.map((json) => Rental.fromMap(json)).toList();
   }
@@ -332,77 +355,5 @@ class DatabaseHelper {
     return await db.query('time_deposits', where: 'sisa_menit > 0', orderBy: 'nama ASC');
   }
 
-  // ==========================================
-  // SNACK ITEMS & ORDERS
-  // ==========================================
 
-  Future<List<SnackItem>> getAllSnackItems() async {
-    final db = await instance.database;
-    final result = await db.query('snack_items', orderBy: 'nama ASC');
-    return result.map((json) => SnackItem.fromMap(json)).toList();
-  }
-
-  Future<int> insertSnackItem(SnackItem item) async {
-    final db = await instance.database;
-    return await db.insert('snack_items', item.toMap());
-  }
-
-  Future<int> updateSnackItem(SnackItem item) async {
-    final db = await instance.database;
-    return await db.update('snack_items', item.toMap(), where: 'id = ?', whereArgs: [item.id]);
-  }
-
-  Future<int> deleteSnackItem(int id) async {
-    final db = await instance.database;
-    return await db.delete('snack_items', where: 'id = ?', whereArgs: [id]);
-  }
-
-  Future<void> reduceStock(int id, int qty) async {
-    final db = await instance.database;
-    await db.transaction((txn) async {
-      final items = await txn.query('snack_items', where: 'id = ?', whereArgs: [id]);
-      if (items.isNotEmpty) {
-        final curStock = items.first['stok'] as int;
-        final newStock = (curStock - qty) < 0 ? 0 : (curStock - qty);
-        await txn.update(
-          'snack_items',
-          {'stok': newStock},
-          where: 'id = ?',
-          whereArgs: [id],
-        );
-      }
-    });
-  }
-
-  Future<int> insertSnackOrder(SnackOrder order) async {
-    final db = await instance.database;
-    return await db.insert('snack_orders', order.toMap());
-  }
-
-  Future<List<SnackOrder>> getSnackOrdersByDate(String tanggal) async {
-    final db = await instance.database;
-    final result = await db.query(
-      'snack_orders',
-      where: 'tanggal = ?',
-      whereArgs: [tanggal],
-      orderBy: 'id DESC',
-    );
-    return result.map((json) => SnackOrder.fromMap(json)).toList();
-  }
-
-  Future<List<SnackOrder>> getSnackOrdersByDateRange(String startDate, String endDate) async {
-    final db = await instance.database;
-    final result = await db.query(
-      'snack_orders',
-      where: 'tanggal >= ? AND tanggal <= ?',
-      whereArgs: [startDate, endDate],
-      orderBy: 'tanggal DESC, id DESC',
-    );
-    return result.map((json) => SnackOrder.fromMap(json)).toList();
-  }
-
-  Future<int> deleteSnackOrder(int id) async {
-    final db = await instance.database;
-    return await db.delete('snack_orders', where: 'id = ?', whereArgs: [id]);
-  }
 }
