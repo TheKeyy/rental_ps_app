@@ -128,68 +128,74 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
       }
 
       if (!mounted) return;
-      final textController = TextEditingController(text: extractedText);
       var shouldSave = false;
-      var reviewedText = '';
-      try {
-        shouldSave = await showDialog<bool>(
-              context: context,
-              barrierDismissible: false,
-              builder: (dialogContext) => AlertDialog(
-                title: const Text('Periksa hasil baca foto'),
-                content: SizedBox(
-                  width: 480,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ClipRRect(
+      final reviewedText = extractedText;
+      shouldSave = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (dialogContext) => AlertDialog(
+              title: const Text('Periksa foto buku'),
+              content: SizedBox(
+                width: 420,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.memory(
+                          bytes,
+                          height: 180,
+                          width: double.infinity,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Foto akan disimpan terlebih dahulu. Setelah itu, isi dan rapikan data melalui tabel enam kolom agar lebih mudah dibaca.',
+                        style: TextStyle(fontSize: 14, height: 1.5),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(dialogContext).colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.memory(
-                            bytes,
-                            height: 180,
-                            width: double.infinity,
-                            fit: BoxFit.contain,
-                          ),
                         ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Format buku: No | Nama | PS | Waktu | Sewa | Saldo. Cocokkan hasil OCR dengan buku asli. Baris yang tidak terbaca bisa diisi manual pada langkah berikutnya.',
-                          style: TextStyle(fontSize: 12, height: 1.45),
+                        child: const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Kolom yang akan diisi', style: TextStyle(fontWeight: FontWeight.w700)),
+                            SizedBox(height: 6),
+                            Text('No  ·  Nama  ·  PS  ·  Waktu  ·  Sewa  ·  Saldo'),
+                          ],
                         ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: textController,
-                          minLines: 4,
-                          maxLines: 9,
-                          decoration: const InputDecoration(
-                            labelText: 'Teks hasil baca (bisa dikoreksi)',
-                            alignLabelWithHint: true,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Tulisan tangan mungkin tidak terbaca sempurna oleh OCR. Cocokkan setiap baris dengan foto asli sebelum mengimpor transaksi.',
+                        style: TextStyle(fontSize: 12, height: 1.45, color: Colors.blueGrey),
+                      ),
+                    ],
                   ),
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(dialogContext, false),
-                    child: const Text('Batal'),
-                  ),
-                  FilledButton.icon(
-                    onPressed: () => Navigator.pop(dialogContext, true),
-                    icon: const Icon(Icons.save_outlined),
-                    label: const Text('Simpan foto & rekap'),
-                  ),
-                ],
               ),
-            ) ??
-            false;
-        reviewedText = textController.text.trim();
-      } finally {
-        textController.dispose();
-      }
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Batal'),
+                ),
+                FilledButton.icon(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  icon: const Icon(Icons.table_chart_outlined),
+                  label: const Text('Simpan & atur kolom'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
 
       if (!shouldSave || !mounted) return;
       final insertedId = await DatabaseHelper.instance.insertNoteScan(
