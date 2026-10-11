@@ -353,10 +353,18 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
       );
       if (edited == null) return;
       final reviewedText = edited.trim();
+      final parsedRows = _parseRows(reviewedText);
+      final existingRows = _decodeRows(photo);
+      final stableRows = List<Map<String, String>>.generate(parsedRows.length, (index) {
+        final key = index < existingRows.length
+            ? (existingRows[index]['_import_key'] ?? 'row-${index + 1}')
+            : 'manual-${DateTime.now().microsecondsSinceEpoch}-$index';
+        return {...parsedRows[index], '_import_key': key};
+      });
       await DatabaseHelper.instance.updateNoteScanReview(
         id: id,
         extractedText: reviewedText,
-        entriesJson: jsonEncode(_withImportKeys(_parseRows(reviewedText))),
+        entriesJson: jsonEncode(stableRows),
       );
       if (!mounted) return;
       await _loadPhotos();
