@@ -16,6 +16,8 @@ import 'add_rental_screen.dart';
 import 'note_scan_screen.dart';
 import 'report_screen.dart';
 import 'settings_screen.dart';
+import 'bookings_screen.dart';
+import 'units_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -482,9 +484,25 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportScreen())),
           ),
           IconButton(
+            icon: const Icon(Icons.event_available_outlined),
+            tooltip: 'Booking Rental',
+            onPressed: () async {
+              await Navigator.push(context, MaterialPageRoute(builder: (_) => const BookingsScreen()));
+              _loadAllData();
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.document_scanner_outlined),
             tooltip: 'Foto Catatan',
             onPressed: _openNoteScans,
+          ),
+          IconButton(
+            icon: const Icon(Icons.sports_esports_outlined),
+            tooltip: 'Manajemen Unit',
+            onPressed: () async {
+              await Navigator.push(context, MaterialPageRoute(builder: (_) => const UnitsScreen()));
+              _loadAllData();
+            },
           ),
           IconButton(
             icon: const Icon(Icons.settings),
