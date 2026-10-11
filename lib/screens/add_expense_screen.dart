@@ -33,7 +33,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Future<void> _simpan() async {
     final ket = _ketController.text.trim();
     final nominal = int.tryParse(_nominalController.text) ?? 0;
-    if (ket.isEmpty || nominal <= 0) return;
+    if (ket.isEmpty || nominal <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Isi keterangan dan nominal lebih dari Rp 0.')),
+      );
+      return;
+    }
 
     final now = DateTime.now();
     final exp = Expense(
