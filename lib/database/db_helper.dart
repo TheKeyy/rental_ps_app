@@ -681,19 +681,23 @@ class DatabaseHelper {
           continue;
         }
 
-        final startAt = DateTime.tryParse('${tanggal}T${waktuMulai}:00');
+        final startAt = DateTime.tryParse('${tanggal}T$waktuMulai:00');
         if (startAt == null) {
           skipped.add({'nama': nama, 'reason': 'Tanggal atau jam mulai tidak valid.'});
           continue;
         }
-        final endAt = startAt.add(Duration(minutes: durasiMenit));
+        final validPsNomor = psNomor!;
+        final validUnitId = unitId!;
+        final validDurasiMenit = durasiMenit!;
+        final validSaldo = saldo!;
+        final endAt = startAt.add(Duration(minutes: validDurasiMenit));
         final rental = Rental(
           nama: nama,
-          psNomor: psNomor,
+          psNomor: validPsNomor,
           waktuMulai: RentalTime.formatJam(startAt),
           waktuSelesai: RentalTime.formatJam(endAt),
-          durasiMenit: durasiMenit,
-          saldo: saldo,
+          durasiMenit: validDurasiMenit,
+          saldo: validSaldo,
           metodeBayar: metodeBayar,
           tanggal: tanggal,
         );
@@ -701,7 +705,7 @@ class DatabaseHelper {
         final duplicate = await txn.query(
           'rentals',
           where: 'tanggal = ? AND ps_nomor = ? AND LOWER(nama) = ? AND waktu_mulai = ? AND durasi_menit = ? AND saldo = ?',
-          whereArgs: [tanggal, psNomor, nama.toLowerCase(), rental.waktuMulai, durasiMenit, saldo],
+          whereArgs: [tanggal, validPsNomor, nama.toLowerCase(), rental.waktuMulai, validDurasiMenit, validSaldo],
           limit: 1,
         );
         if (duplicate.isNotEmpty) {
