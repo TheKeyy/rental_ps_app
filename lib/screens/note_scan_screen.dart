@@ -169,6 +169,7 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
         extractedText: reviewedText,
         createdAt: DateTime.now().toIso8601String(),
       );
+      if (!mounted) return;
       await _loadPhotos();
       if (mounted) _showMessage('Foto catatan berhasil disimpan.');
     } catch (e) {
@@ -342,7 +343,7 @@ class _NoteScansScreenState extends State<NoteScansScreen> {
         actions: [
           IconButton(
             tooltip: 'Pilih tanggal',
-            onPressed: _pickDate,
+            onPressed: _isProcessing ? null : _pickDate,
             icon: const Icon(Icons.calendar_month_outlined),
           ),
         ],
