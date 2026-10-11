@@ -28,7 +28,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 11,
+      version: 12,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 4) {
@@ -65,6 +65,9 @@ class DatabaseHelper {
         }
         if (oldVersion < 11) {
           await _migrateV11(db);
+        }
+        if (oldVersion < 12) {
+          await _migrateV12(db);
         }
       },
     );
@@ -105,6 +108,7 @@ class DatabaseHelper {
     ''');
 
     await _createNoteScansTable(db);
+    await _createRentalManagementTables(db);
     await _createIndexes(db);
   }
 
@@ -153,6 +157,41 @@ class DatabaseHelper {
     await _createNoteScansTable(db);
   }
 
+  Future<void> _migrateV12(Database db) async {
+    await _createRentalManagementTables(db);
+  }
+
+  Future<void> _createRentalManagementTables(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS rental_units (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        unit_code TEXT NOT NULL UNIQUE,
+        console_type TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        unit_number INTEGER NOT NULL UNIQUE,
+        hourly_rate INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS bookings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_name TEXT NOT NULL,
+        customer_phone TEXT NOT NULL DEFAULT '',
+        unit_id INTEGER NOT NULL,
+        start_at TEXT NOT NULL,
+        end_at TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'Menunggu',
+        note TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(unit_id) REFERENCES rental_units(id)
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_bookings_schedule ON bookings(unit_id, start_at, end_at)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status)');
+  }
+
   Future<void> _migrateV11(Database db) async {
     final tables = await db.rawQuery(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'note_scans'",
@@ -169,6 +208,101 @@ class DatabaseHelper {
         "ALTER TABLE note_scans ADD COLUMN entries_json TEXT NOT NULL DEFAULT '[]'",
       );
     }
+  }
+
+  // ==========================================
+  // DYNAMIC UNITS AND BOOKINGS
+  // ==========================================
+
+  Future<List<Map<String, dynamic>>> getRentalUnits({bool activeOnly = true}) async {
+    final db = await instance.database;
+    return db.query(
+      'rental_units',
+      where: activeOnly ? 'is_active = 1' : null,
+      orderBy: 'console_type ASC, unit_code ASC',
+    );
+  }
+
+  Future<int> saveRentalUnit({
+    int? id,
+    required String unitCode,
+    required String consoleType,
+    required String displayName,
+    required int unitNumber,
+    required int hourlyRate,
+    bool active = true,
+  }) async {
+    final db = await instance.database;
+    final values = <String, Object?>{
+      'unit_code': unitCode.trim().toUpperCase(),
+      'console_type': consoleType.trim().toUpperCase(),
+      'display_name': displayName.trim(),
+      'unit_number': unitNumber,
+      'hourly_rate': hourlyRate,
+      'is_active': active ? 1 : 0,
+      'created_at': DateTime.now().toIso8601String(),
+    };
+    if (id == null) return db.insert('rental_units', values);
+    values.remove('created_at');
+    return db.update('rental_units', values, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<List<Map<String, dynamic>>> getBookings({String? status}) async {
+    final db = await instance.database;
+    final where = status == null ? null : 'b.status = ?';
+    return db.rawQuery('''
+      SELECT b.*, u.unit_code, u.console_type, u.display_name
+      FROM bookings b JOIN rental_units u ON u.id = b.unit_id
+      ${where == null ? '' : 'WHERE $where'}
+      ORDER BY b.start_at ASC
+    ''', status == null ? null : [status]);
+  }
+
+  Future<bool> bookingBentrok({
+    required int unitId,
+    required String startAt,
+    required String endAt,
+    int? excludeId,
+  }) async {
+    final db = await instance.database;
+    final rows = await db.query(
+      'bookings',
+      where: "unit_id = ? AND status IN ('Menunggu', 'Dikonfirmasi') AND start_at < ? AND end_at > ?${excludeId == null ? '' : ' AND id != ?'}",
+      whereArgs: [unitId, endAt, startAt, if (excludeId != null) excludeId],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
+  Future<int> saveBooking({
+    int? id,
+    required String customerName,
+    required String customerPhone,
+    required int unitId,
+    required String startAt,
+    required String endAt,
+    required String status,
+    String note = '',
+  }) async {
+    final db = await instance.database;
+    final values = <String, Object?>{
+      'customer_name': customerName.trim(),
+      'customer_phone': customerPhone.trim(),
+      'unit_id': unitId,
+      'start_at': startAt,
+      'end_at': endAt,
+      'status': status,
+      'note': note.trim(),
+      'created_at': DateTime.now().toIso8601String(),
+    };
+    if (id == null) return db.insert('bookings', values);
+    values.remove('created_at');
+    return db.update('bookings', values, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> updateBookingStatus(int id, String status) async {
+    final db = await instance.database;
+    await db.update('bookings', {'status': status}, where: 'id = ?', whereArgs: [id]);
   }
 
   // ==========================================
