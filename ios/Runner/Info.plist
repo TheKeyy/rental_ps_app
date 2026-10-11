@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Rental PS menggunakan kamera untuk memotret halaman buku catatan rental.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Rental PS membutuhkan akses galeri untuk memilih foto halaman buku catatan rental.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

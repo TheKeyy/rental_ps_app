@@ -33,7 +33,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Future<void> _simpan() async {
     final ket = _ketController.text.trim();
     final nominal = int.tryParse(_nominalController.text) ?? 0;
-    if (ket.isEmpty || nominal <= 0) return;
+    if (ket.isEmpty || nominal <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Isi keterangan dan nominal lebih dari Rp 0.')),
+      );
+      return;
+    }
 
     final now = DateTime.now();
     final exp = Expense(
@@ -62,7 +67,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         children: [
           DropdownButtonFormField<String>(
             value: Expense.kategoriPilihan.contains(_kategori) ? _kategori : 'Lainnya',
-            decoration: const InputDecoration(labelText: 'Kategori', border: OutlineInputBorder()),
+            decoration: const InputDecoration(labelText: 'Kategori', prefixIcon: Icon(Icons.category_outlined)),
             items: Expense.kategoriPilihan
                 .map((k) => DropdownMenuItem(value: k, child: Text(k)))
                 .toList(),
@@ -73,7 +78,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             controller: _ketController,
             decoration: const InputDecoration(
               labelText: 'Keterangan',
-              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.notes_outlined),
             ),
           ),
           const SizedBox(height: 16),
@@ -82,17 +87,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
               labelText: 'Nominal pengeluaran (Rp)',
-              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.payments_outlined),
             ),
           ),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _simpan,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
               minimumSize: const Size.fromHeight(50),
             ),
-            child: const Text('Simpan pengeluaran', style: TextStyle(color: Colors.white)),
+            child: const Text('Simpan pengeluaran'),
           ),
         ],
       ),

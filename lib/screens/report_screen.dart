@@ -6,6 +6,7 @@ import '../database/db_helper.dart';
 import '../models/expense_model.dart';
 import '../models/rental_model.dart';
 import '../services/settings_service.dart';
+import 'note_scan_screen.dart';
 
 class ReportScreen extends StatefulWidget {
   const ReportScreen({super.key});
@@ -124,14 +125,17 @@ class _ReportScreenState extends State<ReportScreen> {
     }
   }
 
-  Widget _card(String title, String value, Color color, IconData icon) {
+  Widget _card(String title, String value, IconData icon) {
+    final accent = Theme.of(context).colorScheme.primary;
     return Card(
-      elevation: 2,
       margin: const EdgeInsets.symmetric(vertical: 5),
       child: ListTile(
-        leading: CircleAvatar(backgroundColor: color.withOpacity(0.15), child: Icon(icon, color: color)),
-        title: Text(title, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        subtitle: Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+        leading: CircleAvatar(
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          child: Icon(icon, color: accent),
+        ),
+        title: Text(title, style: const TextStyle(fontSize: 12, color: Color(0xFF667085))),
+        subtitle: Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: accent)),
       ),
     );
   }
@@ -145,7 +149,19 @@ class _ReportScreenState extends State<ReportScreen> {
       appBar: AppBar(
         title: const Text('Laporan'),
         actions: [
-          IconButton(icon: const Icon(Icons.share, color: Colors.green), onPressed: _exportWhatsApp),
+          IconButton(
+            tooltip: 'Foto catatan',
+            icon: const Icon(Icons.document_scanner_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => NoteScansScreen(
+                  initialDate: _selectedFilterIndex == 1 ? DateTime.now() : _endDate,
+                ),
+              ),
+            ),
+          ),
+          IconButton(tooltip: 'Kirim rekap WhatsApp', icon: const Icon(Icons.share_outlined), onPressed: _exportWhatsApp),
         ],
       ),
       body: ListView(
@@ -162,6 +178,23 @@ class _ReportScreenState extends State<ReportScreen> {
           ),
           const SizedBox(height: 8),
           Center(child: Text(_periodLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => NoteScansScreen(
+                  initialDate: _selectedFilterIndex == 1 ? DateTime.now() : _endDate,
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.photo_library_outlined),
+            label: const Text('Arsip foto buku catatan'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(46),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
           const SizedBox(height: 16),
           Card(
             color: _sisaOperasional >= 0 ? Colors.green.shade50 : Colors.red.shade50,
@@ -182,11 +215,11 @@ class _ReportScreenState extends State<ReportScreen> {
               ),
             ),
           ),
-          _card('Durasi sewa', '${_totalMenitRental ~/ 60} jam ${_totalMenitRental % 60} menit (${_rentals.length} sesi)', Colors.indigo, Icons.timer_outlined),
-          _card('Omzet sewa', currency.format(_totalSaldoRental), Colors.blue, Icons.sports_esports),
-          _card('Cash', currency.format(_cash), Colors.green, Icons.payments),
-          _card('Transfer', currency.format(_transfer), Colors.teal, Icons.account_balance),
-          _card('Pengeluaran', currency.format(_totalPengeluaran), Colors.red, Icons.money_off),
+          _card('Durasi sewa', '${_totalMenitRental ~/ 60} jam ${_totalMenitRental % 60} menit (${_rentals.length} sesi)', Icons.timer_outlined),
+          _card('Omzet sewa', currency.format(_totalSaldoRental), Icons.sports_esports),
+          _card('Cash', currency.format(_cash), Icons.payments),
+          _card('Transfer', currency.format(_transfer), Icons.account_balance),
+          _card('Pengeluaran', currency.format(_totalPengeluaran), Icons.money_off),
           const SizedBox(height: 12),
           const Text('Pengeluaran per kategori', style: TextStyle(fontWeight: FontWeight.bold)),
           if (_keluarPerKategori.isEmpty)
@@ -209,9 +242,9 @@ class _ReportScreenState extends State<ReportScreen> {
                 )),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade700, minimumSize: const Size.fromHeight(48)),
-            icon: const Icon(Icons.share, color: Colors.white),
-            label: const Text('Kirim rekap ke WhatsApp', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+            icon: const Icon(Icons.share_outlined),
+            label: const Text('Kirim rekap ke WhatsApp'),
             onPressed: _exportWhatsApp,
           ),
         ],

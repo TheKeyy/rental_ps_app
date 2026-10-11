@@ -92,16 +92,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Widget _sectionTitle(String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 9),
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Pengaturan')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
         children: [
+          _sectionTitle('Profil warung', Icons.storefront_outlined),
+
           TextField(
             controller: _namaCtrl,
-            decoration: const InputDecoration(labelText: 'Nama warung', border: OutlineInputBorder()),
+            decoration: const InputDecoration(labelText: 'Nama warung', prefixIcon: Icon(Icons.storefront_outlined)),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -109,10 +124,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             keyboardType: TextInputType.phone,
             decoration: const InputDecoration(
               labelText: 'Nomor WhatsApp (opsional, 62...)',
-              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.phone_outlined),
             ),
           ),
           const SizedBox(height: 16),
+          _sectionTitle('Unit dan keamanan', Icons.tune_outlined),
           Text('Jumlah unit PS: $_jumlahPs', style: const TextStyle(fontWeight: FontWeight.bold)),
           Slider(
             value: _jumlahPs.toDouble(),
@@ -134,10 +150,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             obscureText: true,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(labelText: 'PIN', border: OutlineInputBorder()),
+            decoration: const InputDecoration(labelText: 'PIN', prefixIcon: Icon(Icons.lock_outline)),
           ),
           const SizedBox(height: 20),
-          const Text('Tarif paket', style: TextStyle(fontWeight: FontWeight.bold)),
+          _sectionTitle('Pengaturan tarif', Icons.payments_outlined),
           const SizedBox(height: 8),
           ...Tariff.paketDefault.keys.map((menit) {
             return Padding(
@@ -148,7 +164,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 decoration: InputDecoration(
                   labelText: Tariff.labelDurasi(menit),
                   prefixText: 'Rp ',
-                  border: const OutlineInputBorder(),
                 ),
                 onChanged: (v) {
                   _paket[menit] = int.tryParse(v) ?? 0;
@@ -162,11 +177,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             decoration: const InputDecoration(
               labelText: 'Harga per 10 menit (durasi di luar paket)',
               prefixText: 'Rp ',
-              border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 20),
-          const Text('Cadangan data', style: TextStyle(fontWeight: FontWeight.bold)),
+          _sectionTitle('Cadangan data', Icons.backup_outlined),
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: _backup,
