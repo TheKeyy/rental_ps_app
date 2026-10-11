@@ -276,10 +276,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: !isBusy
-                                ? Colors.teal
+                                ? const Color(0xFF15803D)
                                 : isWarning
-                                    ? Colors.orange
-                                    : Colors.blue,
+                                    ? const Color(0xFFB45309)
+                                    : const Color(0xFF4F46E5),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -306,12 +306,23 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       ),
                       InkWell(
                         onTap: () => _simpanSisaWaktuModal(aktif),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.save_as, size: 14, color: Theme.of(context).colorScheme.primary),
-                            SizedBox(width: 4),
-                            Text('Stop & simpan sisa', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.primary)),
-                          ],
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              Icon(Icons.save_as, size: 14, color: Theme.of(context).colorScheme.primary),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Stop & simpan sisa',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ] else ...[
@@ -326,7 +337,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       else
                         const Text(
                           'Siap digunakan',
-                          style: TextStyle(fontSize: 12, color: Colors.teal, fontWeight: FontWeight.w600),
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF15803D), fontWeight: FontWeight.w600),
                         ),
                       const Spacer(),
                     ],
