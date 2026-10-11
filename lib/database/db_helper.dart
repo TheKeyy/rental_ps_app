@@ -385,6 +385,19 @@ class DatabaseHelper {
     );
   }
 
+  Future<int> updateNoteScanText({
+    required int id,
+    required String extractedText,
+  }) async {
+    final db = await instance.database;
+    return db.update(
+      'note_scans',
+      {'extracted_text': extractedText},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   Future<int> deleteNoteScan(int id) async {
     final db = await instance.database;
     return db.delete('note_scans', where: 'id = ?', whereArgs: [id]);
