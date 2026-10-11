@@ -184,6 +184,29 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
     final startTime = _startTime;
     final endTime = startTime.add(Duration(minutes: totalDurasiMain));
 
+    final selectedUnit = _unitRows.where((unit) => unit['unit_number'] == _selectedPS).toList();
+    if (selectedUnit.isNotEmpty) {
+      final bookingConflict = await DatabaseHelper.instance.bookingBentrok(
+        unitId: selectedUnit.first['id'] as int,
+        startAt: startTime.toIso8601String(),
+        endAt: endTime.toIso8601String(),
+      );
+      if (bookingConflict) {
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Unit sudah dibooking'),
+            content: Text(
+              '${selectedUnit.first['unit_code']} memiliki booking pada waktu tersebut. Pilih unit atau jam lain.',
+            ),
+            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Mengerti'))],
+          ),
+        );
+        return;
+      }
+    }
+
     if (RentalTime.bentrok(
       existing: _sewaHariIni,
       psNomor: _selectedPS,
