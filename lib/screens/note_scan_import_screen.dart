@@ -161,7 +161,7 @@ class _NoteScanImportScreenState extends State<NoteScanImportScreen> {
         ],
       );
       if (!mounted) return;
-      Navigator.pop(context, result);
+      Navigator.pop(context, {...result, 'date': DateFormat('yyyy-MM-dd').format(_importDate)});
     } catch (error) {
       if (!mounted) return;
       _message('Impor gagal dan tidak ada perubahan yang disimpan: $error');
