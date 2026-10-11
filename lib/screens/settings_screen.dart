@@ -177,7 +177,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             decoration: const InputDecoration(
               labelText: 'Harga per 10 menit (durasi di luar paket)',
               prefixText: 'Rp ',
-              border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 20),
