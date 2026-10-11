@@ -6,6 +6,7 @@ import '../database/db_helper.dart';
 import '../models/expense_model.dart';
 import '../models/rental_model.dart';
 import '../services/settings_service.dart';
+import 'note_scan_screen.dart';
 
 class ReportScreen extends StatefulWidget {
   const ReportScreen({super.key});
@@ -145,6 +146,18 @@ class _ReportScreenState extends State<ReportScreen> {
       appBar: AppBar(
         title: const Text('Laporan'),
         actions: [
+          IconButton(
+            tooltip: 'Foto catatan',
+            icon: const Icon(Icons.document_scanner_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => NoteScansScreen(
+                  initialDate: _selectedFilterIndex == 1 ? DateTime.now() : _endDate,
+                ),
+              ),
+            ),
+          ),
           IconButton(icon: const Icon(Icons.share, color: Colors.green), onPressed: _exportWhatsApp),
         ],
       ),
@@ -162,6 +175,23 @@ class _ReportScreenState extends State<ReportScreen> {
           ),
           const SizedBox(height: 8),
           Center(child: Text(_periodLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => NoteScansScreen(
+                  initialDate: _selectedFilterIndex == 1 ? DateTime.now() : _endDate,
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.photo_library_outlined),
+            label: const Text('Arsip foto buku catatan'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(46),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
           const SizedBox(height: 16),
           Card(
             color: _sisaOperasional >= 0 ? Colors.green.shade50 : Colors.red.shade50,
