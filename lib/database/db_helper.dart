@@ -168,6 +168,7 @@ class DatabaseHelper {
         unit_code TEXT NOT NULL UNIQUE,
         console_type TEXT NOT NULL,
         display_name TEXT NOT NULL,
+        unit_number INTEGER NOT NULL UNIQUE,
         hourly_rate INTEGER NOT NULL DEFAULT 0,
         is_active INTEGER NOT NULL DEFAULT 1,
         created_at TEXT NOT NULL
@@ -227,6 +228,7 @@ class DatabaseHelper {
     required String unitCode,
     required String consoleType,
     required String displayName,
+    required int unitNumber,
     required int hourlyRate,
     bool active = true,
   }) async {
@@ -235,6 +237,7 @@ class DatabaseHelper {
       'unit_code': unitCode.trim().toUpperCase(),
       'console_type': consoleType.trim().toUpperCase(),
       'display_name': displayName.trim(),
+      'unit_number': unitNumber,
       'hourly_rate': hourlyRate,
       'is_active': active ? 1 : 0,
       'created_at': DateTime.now().toIso8601String(),
