@@ -391,7 +391,6 @@ class _AddRentalScreenState extends State<AddRentalScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Tarif yang wajib dibayar (Rp)',
                     prefixIcon: Icon(Icons.payments_outlined),
-                    border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
